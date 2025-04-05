@@ -3,31 +3,54 @@
 //!
 //! You can run this script using the following command:
 //! ```shell
-//! RUST_LOG=info cargo run --release --bin evm -- --system groth16
+//! RUST_LOG=info cargo run --release --bin evm -- --execute
 //! ```
 //! or
 //! ```shell
-//! RUST_LOG=info cargo run --release --bin evm -- --system plonk
+//! RUST_LOG=info cargo run --release --bin evm -- --prove
 //! ```
 
 use alloy_sol_types::SolType;
 use clap::{Parser, ValueEnum};
-use fibonacci_lib::PublicValuesStruct;
+use fibonacci_lib::{Board2048, PublicValuesStruct};
 use serde::{Deserialize, Serialize};
 use sp1_sdk::{
     include_elf, HashableKey, ProverClient, SP1ProofWithPublicValues, SP1Stdin, SP1VerifyingKey,
 };
+use std::num::ParseIntError;
 use std::path::PathBuf;
+use std::str::FromStr;
 
 /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
 pub const FIBONACCI_ELF: &[u8] = include_elf!("fibonacci-program");
 
-/// The arguments for the EVM command.
+#[derive(Debug, Clone)]
+struct VecString(Vec<u8>);
+
+impl FromStr for VecString {
+    type Err = ParseIntError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        s.split(',')
+            .map(|num_str| num_str.trim().parse::<u8>())
+            .collect::<Result<Vec<_>, _>>()
+            .map(VecString)
+    }
+}
+
+/// The arguments for the command.
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct EVMArgs {
-    #[arg(long, default_value = "20")]
-    n: u32,
+    #[arg(long, default_value = "4,8,4,2,4,0,2,2,8,0,0,0,8,8,2,4")]
+    board: VecString,
+
+    #[arg(
+        long,
+        default_value = "0,1,2,3,2,1,0,3,0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3,2,1,0,3,0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3,2,1,0,3,0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3,2,1,0,3,0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3,2,1,0,3,0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3"
+    )]
+    moves: VecString,
+
     #[arg(long, value_enum, default_value = "groth16")]
     system: ProofSystem,
 }
@@ -42,10 +65,7 @@ enum ProofSystem {
 /// A fixture that can be used to test the verification of SP1 zkVM proofs inside Solidity.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct SP1FibonacciProofFixture {
-    a: u32,
-    b: u32,
-    n: u32,
+struct SP1ProofFixture {
     vkey: String,
     public_values: String,
     proof: String,
@@ -58,71 +78,59 @@ fn main() {
     // Parse the command line arguments.
     let args = EVMArgs::parse();
 
+    let repeated: Vec<_> = (0..10).flat_map(|_| args.moves.0.clone()).collect();
+
     // Setup the prover client.
     let client = ProverClient::from_env();
 
-    // Setup the program.
-    let (pk, vk) = client.setup(FIBONACCI_ELF);
-
     // Setup the inputs.
     let mut stdin = SP1Stdin::new();
-    stdin.write(&args.n);
+    stdin.write(&args.board.0);
+    stdin.write(&repeated);
 
-    println!("n: {}", args.n);
-    println!("Proof System: {:?}", args.system);
+    println!("board: {:?}", args.board.0);
+    println!("moves: {:?}", repeated);
 
+    // Setup the program for proving.
+    let setup_start = std::time::Instant::now();
+    let (pk, vk) = client.setup(FIBONACCI_ELF);
+    let setup_duration = setup_start.elapsed();
+    println!("Setup completed in: {:?}", setup_duration);
+
+    // Generate the proof
+    let prove_start = std::time::Instant::now();
     // Generate the proof based on the selected proof system.
     let proof = match args.system {
         ProofSystem::Plonk => client.prove(&pk, &stdin).plonk().run(),
         ProofSystem::Groth16 => client.prove(&pk, &stdin).groth16().run(),
     }
     .expect("failed to generate proof");
+    let prove_duration = prove_start.elapsed();
+    println!("Successfully generated proof in: {:?}", prove_duration);
 
-    create_proof_fixture(&proof, &vk, args.system);
-}
-
-/// Create a fixture for the given proof.
-fn create_proof_fixture(
-    proof: &SP1ProofWithPublicValues,
-    vk: &SP1VerifyingKey,
-    system: ProofSystem,
-) {
-    // Deserialize the public values.
-    let bytes = proof.public_values.as_slice();
-    let PublicValuesStruct { n, a, b } = PublicValuesStruct::abi_decode(bytes, false).unwrap();
-
-    // Create the testing fixture so we can test things end-to-end.
-    let fixture = SP1FibonacciProofFixture {
-        a,
-        b,
-        n,
+    // Create and save the fixture
+    let fixture = SP1ProofFixture {
         vkey: vk.bytes32().to_string(),
-        public_values: format!("0x{}", hex::encode(bytes)),
+        public_values: format!("0x{}", hex::encode(proof.public_values.as_slice())),
         proof: format!("0x{}", hex::encode(proof.bytes())),
     };
 
-    // The verification key is used to verify that the proof corresponds to the execution of the
-    // program on the given input.
-    //
-    // Note that the verification key stays the same regardless of the input.
-    println!("Verification Key: {}", fixture.vkey);
-
-    // The public values are the values which are publicly committed to by the zkVM.
-    //
-    // If you need to expose the inputs or outputs of your program, you should commit them in
-    // the public values.
-    println!("Public Values: {}", fixture.public_values);
-
-    // The proof proves to the verifier that the program was executed with some inputs that led to
-    // the give public values.
-    println!("Proof Bytes: {}", fixture.proof);
-
-    // Save the fixture to a file.
     let fixture_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../contracts/src/fixtures");
     std::fs::create_dir_all(&fixture_path).expect("failed to create fixture path");
     std::fs::write(
-        fixture_path.join(format!("{:?}-fixture.json", system).to_lowercase()),
+        fixture_path.join("fixture.json"),
         serde_json::to_string_pretty(&fixture).unwrap(),
     )
     .expect("failed to write fixture");
+
+    // Verify the proof.
+    let verify_start = std::time::Instant::now();
+    client.verify(&proof, &vk).expect("failed to verify proof");
+    let verify_duration = verify_start.elapsed();
+    println!("Successfully verified proof in: {:?}", verify_duration);
+
+    println!(
+        "Total proving time: {:?}",
+        setup_duration + prove_duration + verify_duration
+    );
 }

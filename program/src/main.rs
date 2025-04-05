@@ -12,19 +12,33 @@ use alloy_sol_types::SolType;
 use fibonacci_lib::{fibonacci, PublicValuesStruct};
 
 pub fn main() {
-    // Read an input to the program.
-    //
-    // Behind the scenes, this compiles down to a custom system call which handles reading inputs
-    // from the prover.
-    let n = sp1_zkvm::io::read::<u32>();
+    // Read the initial board state and sequence of moves
+    let board_seq = sp1_zkvm::io::read::<Vec<u8>>();
+    let moves = sp1_zkvm::io::read::<Vec<u8>>();
 
-    // Compute the n'th fibonacci number using a function from the workspace lib crate.
-    let (a, b) = fibonacci(n);
+    // Convert board sequence into 2D array
+    let mut board = [[0u8; 4]; 4];
+    for i in 0..4 {
+        for j in 0..4 {
+            board[i][j] = board_seq[i * 4 + j];
+        }
+    }
 
-    // Encode the public values of the program.
-    let bytes = PublicValuesStruct::abi_encode(&PublicValuesStruct { n, a, b });
+    // Apply each move in sequence
+    for &direction in moves.iter() {
+        board = fibonacci_lib::move_board(&board, direction);
+    }
 
-    // Commit to the public values of the program. The final proof will have a commitment to all the
-    // bytes that were committed to.
+    // Flatten final board back to sequence
+    let mut final_board = Vec::with_capacity(16);
+    for row in board.iter() {
+        for &cell in row.iter() {
+            final_board.push(cell);
+        }
+    }
+
+    // Encode and commit the final board state
+    let bytes =
+        fibonacci_lib::Board2048::abi_encode(&fibonacci_lib::Board2048 { board: final_board });
     sp1_zkvm::io::commit_slice(&bytes);
 }

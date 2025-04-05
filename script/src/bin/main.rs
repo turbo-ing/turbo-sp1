@@ -12,11 +12,27 @@
 
 use alloy_sol_types::SolType;
 use clap::Parser;
-use fibonacci_lib::PublicValuesStruct;
+use fibonacci_lib::{Board2048, PublicValuesStruct};
 use sp1_sdk::{include_elf, ProverClient, SP1Stdin};
+use std::num::ParseIntError;
+use std::str::FromStr;
 
 /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
 pub const FIBONACCI_ELF: &[u8] = include_elf!("fibonacci-program");
+
+#[derive(Debug, Clone)]
+struct VecString(Vec<u8>);
+
+impl FromStr for VecString {
+    type Err = ParseIntError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        s.split(',')
+            .map(|num_str| num_str.trim().parse::<u8>())
+            .collect::<Result<Vec<_>, _>>()
+            .map(VecString)
+    }
+}
 
 /// The arguments for the command.
 #[derive(Parser, Debug)]
@@ -28,8 +44,14 @@ struct Args {
     #[arg(long)]
     prove: bool,
 
-    #[arg(long, default_value = "20")]
-    n: u32,
+    #[arg(long, default_value = "4,8,4,2,4,0,2,2,8,0,0,0,8,8,2,4")]
+    board: VecString,
+
+    #[arg(
+        long,
+        default_value = "0,1,2,3,2,1,0,3,0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3,2,1,0,3,0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3,2,1,0,3,0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3,2,1,0,3,0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3,2,1,0,3,0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3"
+    )]
+    moves: VecString,
 }
 
 fn main() {
@@ -45,14 +67,19 @@ fn main() {
         std::process::exit(1);
     }
 
+    // let repeated: Vec<_> = (0..10).flat_map(|_| args.moves.0.clone()).collect();
+    let repeated = args.moves.0;
+
     // Setup the prover client.
     let client = ProverClient::from_env();
 
     // Setup the inputs.
     let mut stdin = SP1Stdin::new();
-    stdin.write(&args.n);
+    stdin.write(&args.board.0);
+    stdin.write(&repeated);
 
-    println!("n: {}", args.n);
+    println!("board: {:?}", args.board.0);
+    println!("moves: {:?}", repeated);
 
     if args.execute {
         // Execute the program
@@ -60,33 +87,48 @@ fn main() {
         println!("Program executed successfully.");
 
         // Read the output.
-        let decoded = PublicValuesStruct::abi_decode(output.as_slice(), true).unwrap();
-        let PublicValuesStruct { n, a, b } = decoded;
-        println!("n: {}", n);
-        println!("a: {}", a);
-        println!("b: {}", b);
-
-        let (expected_a, expected_b) = fibonacci_lib::fibonacci(n);
-        assert_eq!(a, expected_a);
-        assert_eq!(b, expected_b);
-        println!("Values are correct!");
+        let decoded: Board2048 = Board2048::abi_decode(output.as_slice(), true).unwrap();
+        let Board2048 { board } = decoded;
+        println!("board: {:?}", board);
 
         // Record the number of cycles executed.
         println!("Number of cycles: {}", report.total_instruction_count());
     } else {
         // Setup the program for proving.
+        let setup_start = std::time::Instant::now();
         let (pk, vk) = client.setup(FIBONACCI_ELF);
+        let setup_duration = setup_start.elapsed();
+        println!("Setup completed in: {:?}", setup_duration);
 
         // Generate the proof
+        let prove_start = std::time::Instant::now();
         let proof = client
             .prove(&pk, &stdin)
             .run()
             .expect("failed to generate proof");
+        let prove_duration = prove_start.elapsed();
+        println!("Successfully generated proof in: {:?}", prove_duration);
 
-        println!("Successfully generated proof!");
+        println!(
+            "public_values: {:?}",
+            format!("0x{}", hex::encode(proof.public_values.as_slice()))
+        );
 
         // Verify the proof.
+        let verify_start = std::time::Instant::now();
         client.verify(&proof, &vk).expect("failed to verify proof");
-        println!("Successfully verified proof!");
+        let verify_duration = verify_start.elapsed();
+        println!("Successfully verified proof in: {:?}", verify_duration);
+
+        // Read the output.
+        let decoded: Board2048 =
+            Board2048::abi_decode(proof.public_values.as_slice(), true).unwrap();
+        let Board2048 { board } = decoded;
+        println!("board: {:?}", board);
+
+        println!(
+            "Total proving time: {:?}",
+            setup_duration + prove_duration + verify_duration
+        );
     }
 }
