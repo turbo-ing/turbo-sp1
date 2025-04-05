@@ -67,8 +67,8 @@ fn main() {
         std::process::exit(1);
     }
 
-    // let repeated: Vec<_> = (0..10).flat_map(|_| args.moves.0.clone()).collect();
-    let repeated = args.moves.0;
+    let repeated: Vec<_> = (0..10).flat_map(|_| args.moves.0.clone()).collect();
+    // let repeated = args.moves.0;
 
     // Setup the prover client.
     let client = ProverClient::from_env();
