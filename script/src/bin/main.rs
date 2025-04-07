@@ -87,9 +87,10 @@ fn main() {
         println!("Program executed successfully.");
 
         // Read the output.
-        let decoded: Board2048 = Board2048::abi_decode(output.as_slice(), true).unwrap();
-        let Board2048 { board } = decoded;
+        let decoded: Board2048 = Board2048::abi_decode(output.as_slice()).unwrap();
+        let Board2048 { board, hash } = decoded;
         println!("board: {:?}", board);
+        println!("hash: {:?}", hash);
 
         // Record the number of cycles executed.
         println!("Number of cycles: {}", report.total_instruction_count());
@@ -121,10 +122,10 @@ fn main() {
         println!("Successfully verified proof in: {:?}", verify_duration);
 
         // Read the output.
-        let decoded: Board2048 =
-            Board2048::abi_decode(proof.public_values.as_slice(), true).unwrap();
-        let Board2048 { board } = decoded;
+        let decoded: Board2048 = Board2048::abi_decode(proof.public_values.as_slice()).unwrap();
+        let Board2048 { board, hash } = decoded;
         println!("board: {:?}", board);
+        println!("hash: {:?}", hash);
 
         println!(
             "Total proving time: {:?}",

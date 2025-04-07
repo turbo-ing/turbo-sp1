@@ -10,6 +10,7 @@ sol! {
 
     struct Board2048 {
         uint8[] board;
+        bytes32 hash;
     }
 }
 
