@@ -5,3 +5,6 @@ resolver = "2"
 [workspace.dependencies]
 alloy-sol-types = "1.0.0"
 alloy-primitives = "1.0.0"
+tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", tag = "patch-2.0.2-sp1-4.0.0", package = "tiny-keccak", features = [
+    "keccak",
+] }

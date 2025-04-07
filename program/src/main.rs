@@ -8,9 +8,9 @@
 #![no_main]
 sp1_zkvm::entrypoint!(main);
 
-use alloy_primitives::keccak256;
 use alloy_sol_types::SolType;
 use fibonacci_lib::{fibonacci, PublicValuesStruct};
+use tiny_keccak::{Hasher, Keccak};
 
 pub fn main() {
     // Read the initial board state and sequence of moves
@@ -20,7 +20,10 @@ pub fn main() {
     // Compute keccak256 of concatenated board_seq and moves
     let mut combined = board_seq.clone();
     combined.extend(&moves);
-    let hash = keccak256(&combined);
+    let mut hasher = Keccak::v256();
+    hasher.update(&combined);
+    let mut hash = [0u8; 32];
+    hasher.finalize(&mut hash);
 
     // Convert board sequence into 2D array
     let mut board = [[0u8; 4]; 4];
@@ -46,7 +49,7 @@ pub fn main() {
     // Encode and commit the final board state and hash
     let bytes = fibonacci_lib::Board2048::abi_encode(&fibonacci_lib::Board2048 {
         board: final_board,
-        hash,
+        hash: alloy_sol_types::private::FixedBytes(hash),
     });
     sp1_zkvm::io::commit_slice(&bytes);
 }

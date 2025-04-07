@@ -8,3 +8,4 @@ alloy-sol-types = { workspace = true }
 sp1-zkvm = "4.1.7"
 fibonacci-lib = { path = "../lib" }
 alloy-primitives = { workspace = true }
+tiny-keccak = { workspace = true }
