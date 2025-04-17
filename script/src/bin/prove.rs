@@ -98,7 +98,7 @@ fn main() {
     let mut stdin = SP1Stdin::new();
     stdin.write(&server_metadata);
     stdin.write(&player_metadatas);
-    let repeated_actions = args.actions.0.repeat(2);
+    let repeated_actions = args.actions.0.repeat(20);
     stdin.write(&repeated_actions);
 
     println!("actions: {:?}", repeated_actions);
