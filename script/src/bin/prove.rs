@@ -12,10 +12,20 @@
 
 use alloy_sol_types::SolType;
 use clap::Parser;
+use ff::Field;
 use game_lib::GamePublicState;
+use rand::thread_rng;
 use sp1_sdk::{include_elf, ProverClient, SP1Stdin};
 use std::num::ParseIntError;
 use std::str::FromStr;
+use substrate_bn::{Fr, G1};
+use turbo_sp1::{
+    crypto::{
+        serialize_bls::bls12_381_export_g1,
+        serialize_bn::{bn254_export_g1_u32, bn254_g1_one},
+    },
+    metadata::{PlayerMetadata, ServerMetadata},
+};
 
 /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
 pub const GAME_ELF: &[u8] = include_elf!("game-program");
@@ -44,7 +54,11 @@ struct Args {
     #[arg(long)]
     prove: bool,
 
-    #[arg(long, default_value = "1,3,1,0,0, 1,3,1,0,1, 1,2,0,2, 1,2,0,1")]
+    // #[arg(long, default_value = "0,3,1,0,0, 0,3,1,0,1, 0,2,0,2, 0,2,0,1")]
+    #[arg(
+        long,
+        default_value = "0,2,2,2, 0,2,2,1, 0,2,2,0, 0,2,2,3, 0,2,2,2, 0,2,2,2, 0,2,2,1, 0,2,2,0, 0,2,2,1, 0,2,2,3"
+    )]
     actions: VecString,
 }
 
@@ -61,14 +75,33 @@ fn main() {
         std::process::exit(1);
     }
 
+    // Setup mock server and player random seeds
+    let mut rng = thread_rng();
+    let server_random_seed_key = Fr::random(&mut rng);
+    let server_random_seed = bn254_g1_one() * server_random_seed_key;
+    let player_random_seed_key = Fr::random(&mut rng);
+    let player_random_seed = bn254_g1_one() * player_random_seed_key;
+
+    // Setup mock server and client metadata
+    let server_metadata = ServerMetadata {
+        random_seed: bn254_export_g1_u32(&server_random_seed),
+    };
+    let player_metadata: PlayerMetadata = PlayerMetadata {
+        random_seed: bn254_export_g1_u32(&player_random_seed),
+    };
+    let player_metadatas = vec![player_metadata];
+
     // Setup the prover client.
     let client = ProverClient::from_env();
 
     // Setup the inputs.
     let mut stdin = SP1Stdin::new();
-    stdin.write(&args.actions.0);
+    stdin.write(&server_metadata);
+    stdin.write(&player_metadatas);
+    let repeated_actions = args.actions.0.repeat(2);
+    stdin.write(&repeated_actions);
 
-    println!("actions: {:?}", args.actions.0);
+    println!("actions: {:?}", repeated_actions);
 
     if args.execute {
         // Execute the program

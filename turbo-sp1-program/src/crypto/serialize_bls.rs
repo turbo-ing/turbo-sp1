@@ -1,5 +1,7 @@
 use bls12_381::{G1Affine, G1Projective, G2Affine, G2Projective, Scalar};
 
+// BLS12-381 serialization
+
 pub fn bls12_381_public_key(private_key: Scalar) -> G2Projective {
     G2Projective::generator() * private_key
 }

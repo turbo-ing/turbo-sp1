@@ -1,16 +1,14 @@
 use crate::{
-    crypto::serialize::bls12_381_import_g1,
+    crypto::serialize_bls::bls12_381_import_g1,
     metadata::{PlayerMetadata, ServerMetadata},
-    rand::bls_randomizer::BlsRandomizer,
+    rand::bn_randomizer::BnRandomizer,
 };
 
 pub struct TurboActionContext<'a> {
     pub server_metadata: &'a ServerMetadata,
     pub player_metadata: &'a PlayerMetadata,
     pub player_index: u8,
-    pub rand: BlsRandomizer,
-
-    players: Vec<&'a TurboActionContext<'a>>,
+    pub rand: BnRandomizer,
 }
 
 impl<'a> TurboActionContext<'a> {
@@ -19,15 +17,18 @@ impl<'a> TurboActionContext<'a> {
         player_metadata: &'a PlayerMetadata,
         player_index: u8,
     ) -> Self {
-        let server_random_seed = bls12_381_import_g1(&server_metadata.random_seed);
-        let player_random_seed = bls12_381_import_g1(&player_metadata.random_seed);
-
         Self {
             server_metadata,
             player_metadata,
             player_index,
-            rand: BlsRandomizer::new_with_seed(server_random_seed + player_random_seed),
-            players: Vec::new(),
+            rand: BnRandomizer::new_with_seeds(vec![
+                server_metadata.random_seed,
+                player_metadata.random_seed,
+            ]),
         }
+    }
+
+    pub fn rand_u32(&mut self) -> u32 {
+        self.rand.next_rand_u32()
     }
 }

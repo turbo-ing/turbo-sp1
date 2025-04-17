@@ -997,7 +997,7 @@ dependencies = [
  "digest 0.10.7",
  "ff 0.13.1",
  "group 0.13.0",
- "hex 0.4.3",
+ "hex",
  "pairing 0.23.0",
  "rand_core 0.6.4",
  "sp1-lib",
@@ -1033,6 +1033,20 @@ name = "bytemuck"
 version = "1.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6b1fc10dbac614ebc03540c9dbd60e83887fda27794998c6528f1782047d540"
+dependencies = [
+ "bytemuck_derive",
+]
+
+[[package]]
+name = "bytemuck_derive"
+version = "1.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ecc273b49b3205b83d648f0690daa588925572cc5063745bfe547fe7ec8e1a1"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.100",
+]
 
 [[package]]
 name = "byteorder"
@@ -1058,7 +1072,7 @@ dependencies = [
  "blst",
  "cc",
  "glob",
- "hex 0.4.3",
+ "hex",
  "libc",
  "once_cell",
  "serde",
@@ -1235,7 +1249,7 @@ checksum = "4b0485bab839b018a8f1723fc5391819fea5f8f0f32288ef8a735fd096b6160c"
 dependencies = [
  "cfg-if",
  "cpufeatures",
- "hex 0.4.3",
+ "hex",
  "proptest",
  "serde",
 ]
@@ -1672,6 +1686,7 @@ dependencies = [
  "ff 0.13.1",
  "generic-array 0.14.7",
  "group 0.13.0",
+ "hkdf",
  "pem-rfc7468",
  "pkcs8",
  "rand_core 0.6.4",
@@ -1814,14 +1829,18 @@ name = "fibonacci-script"
 version = "0.1.0"
 dependencies = [
  "alloy-sol-types 1.0.0",
+ "bls12_381 0.8.0",
  "clap",
  "dotenv",
+ "ff 0.13.1",
  "game-lib",
- "hex 0.4.3",
+ "hex",
+ "rand 0.8.5",
  "serde",
  "serde_json",
  "sp1-build",
  "sp1-sdk",
+ "substrate-bn",
  "tokio",
  "tracing",
  "turbo-sp1",
@@ -2215,12 +2234,6 @@ checksum = "d231dfb89cfffdbc30e7fc41579ed6066ad03abda9e567ccafae602b97ec5024"
 
 [[package]]
 name = "hex"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "805026a5d0141ffc30abb3be3173848ad46a1b1664fe632428479619a3644d77"
-
-[[package]]
-name = "hex"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
@@ -2229,13 +2242,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "hex-serde"
-version = "0.1.0"
+name = "hkdf"
+version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3486d7bc9e52c4c5fc1856ae8a5e4ab41d2499fc20bbc44492e244e8bf1b7012"
+checksum = "7b5f8eb2ad728638ea2c7d47a21db23b7b58a72ed6a38256b8a1849f15fbbdf7"
 dependencies = [
- "hex 0.3.2",
- "serde",
+ "hmac",
 ]
 
 [[package]]
@@ -4636,7 +4648,7 @@ dependencies = [
  "enum-map",
  "eyre",
  "hashbrown 0.14.5",
- "hex 0.4.3",
+ "hex",
  "itertools 0.13.0",
  "nohash-hasher",
  "num",
@@ -4676,7 +4688,7 @@ dependencies = [
  "generic-array 1.1.0",
  "glob",
  "hashbrown 0.14.5",
- "hex 0.4.3",
+ "hex",
  "itertools 0.13.0",
  "k256",
  "num",
@@ -4774,6 +4786,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e4b2747ae411bca4ba0dd4112779246b101ac7e8f70afc1a33cf8ee003980d7"
 dependencies = [
  "bincode",
+ "elliptic-curve",
  "serde",
  "sp1-primitives",
 ]
@@ -4785,7 +4798,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7939f86891aa5995fa863abf296645a5ad4611d9598a8101389f85c624d41043"
 dependencies = [
  "bincode",
- "hex 0.4.3",
+ "hex",
  "lazy_static",
  "num-bigint 0.4.6",
  "p3-baby-bear",
@@ -4810,7 +4823,7 @@ dependencies = [
  "enum-map",
  "eyre",
  "hashbrown 0.14.5",
- "hex 0.4.3",
+ "hex",
  "itertools 0.13.0",
  "lru",
  "num-bigint 0.4.6",
@@ -4962,7 +4975,7 @@ dependencies = [
  "bindgen",
  "cc",
  "cfg-if",
- "hex 0.4.3",
+ "hex",
  "num-bigint 0.4.6",
  "p3-baby-bear",
  "p3-field",
@@ -4995,7 +5008,7 @@ dependencies = [
  "dirs",
  "futures",
  "hashbrown 0.14.5",
- "hex 0.4.3",
+ "hex",
  "indicatif",
  "itertools 0.13.0",
  "p3-baby-bear",
@@ -5140,6 +5153,22 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "substrate-bn"
+version = "0.6.0"
+source = "git+https://github.com/sp1-patches/bn?tag=patch-0.6.0-sp1-4.0.0#1bd84110963662fae88baa5ad07c9ab92b6acdbb"
+dependencies = [
+ "bytemuck",
+ "byteorder",
+ "cfg-if",
+ "crunchy",
+ "lazy_static",
+ "num-bigint 0.4.6",
+ "rand 0.8.5",
+ "rustc-hex",
+ "sp1-lib",
 ]
 
 [[package]]
@@ -5701,7 +5730,7 @@ dependencies = [
  "alloy-sol-types 1.0.0",
  "futures-util",
  "game-lib",
- "hex 0.4.3",
+ "hex",
  "serde",
  "serde_json",
  "sp1-sdk",
@@ -5717,11 +5746,12 @@ version = "0.1.0"
 dependencies = [
  "alloy-sol-types 1.0.0",
  "bls12_381 0.8.0",
+ "cfg-if",
  "crypto-bigint 0.5.5 (git+https://github.com/sp1-patches/RustCrypto-bigint?tag=patch-0.5.5-sp1-4.0.0)",
- "hex 0.4.3",
- "hex-serde",
  "serde",
+ "sp1-lib",
  "sp1-zkvm",
+ "substrate-bn",
 ]
 
 [[package]]
@@ -5766,7 +5796,7 @@ checksum = "76f64bba2c53b04fcab63c01a7d7427eadc821e3bc48c34dc9ba29c501164b52"
 dependencies = [
  "byteorder",
  "crunchy",
- "hex 0.4.3",
+ "hex",
  "static_assertions",
 ]
 
@@ -6560,7 +6590,7 @@ dependencies = [
  "group 0.12.1",
  "group 0.13.0",
  "halo2",
- "hex 0.4.3",
+ "hex",
  "jubjub",
  "lazy_static",
  "pasta_curves 0.5.1",

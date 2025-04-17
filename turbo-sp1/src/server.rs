@@ -5,7 +5,10 @@ use std::sync::Arc;
 use warp::Filter;
 
 use sp1_sdk::{EnvProver, HashableKey, ProverClient, SP1Stdin};
-use turbo_sp1_program::traits::{TurboActionSerialization, TurboInitState};
+use turbo_sp1_program::{
+    program::TurboReducer,
+    traits::{TurboActionSerialization, TurboInitState},
+};
 
 use crate::warp::rejection::{handle_rejection, ServerError};
 
@@ -91,11 +94,7 @@ async fn handle_proof_request<
 
 pub fn turbo_sp1_routes<PublicState, PrivateState, GameAction>(
     elf: &[u8],
-    reducer: fn(
-        public_state: &mut PublicState,
-        private_state: &mut PrivateState,
-        action: &GameAction,
-    ),
+    reducer: TurboReducer<PublicState, PrivateState, GameAction>,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone
 where
     PublicState: TurboInitState

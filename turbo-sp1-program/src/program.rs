@@ -1,9 +1,17 @@
 use alloy_sol_types::SolValue;
 
 use crate::{
+    context::TurboActionContext,
     metadata::{PlayerMetadata, ServerMetadata},
     traits::{TurboActionSerialization, TurboInitState},
 };
+
+pub type TurboReducer<PublicState, PrivateState, GameAction> = fn(
+    public_state: &mut PublicState,
+    private_state: &mut PrivateState,
+    action: &GameAction,
+    context: &mut TurboActionContext,
+);
 
 /*
 Stdin Format:
@@ -15,12 +23,9 @@ Stdin Format:
 */
 
 fn turbo_sp1_program_inner<PublicState, PrivateState, GameAction>(
-    reducer: fn(
-        public_state: &mut PublicState,
-        private_state: &mut PrivateState,
-        action: &GameAction,
-    ),
+    reducer: TurboReducer<PublicState, PrivateState, GameAction>,
     action_raw: &[u8],
+    contexts: &mut [&mut TurboActionContext],
 ) -> Vec<u8>
 where
     PublicState: TurboInitState + SolValue,
@@ -32,24 +37,24 @@ where
     let mut remaining_actions = action_raw;
 
     while !remaining_actions.is_empty() {
-        let action_type = remaining_actions[0];
-        let action_length = match action_type {
-            0x01 => {
-                if remaining_actions.len() < 2 {
-                    panic!("Invalid action format for type 0x01");
-                }
-                remaining_actions[1] as usize
-            }
-            0x02 => {
-                if remaining_actions.len() < 3 {
-                    panic!("Invalid action format for type 0x02");
-                }
-                ((remaining_actions[1] as usize) << 8) | (remaining_actions[2] as usize)
-            }
-            _ => panic!("Invalid action type byte"),
-        };
+        let player_idx = remaining_actions[0] as usize;
+        let action_type = remaining_actions[1];
+        let mut action_length: usize = action_type as usize;
 
-        let start_idx = if action_type == 0x01 { 2 } else { 3 };
+        if action_type == 0x80 {
+            action_length = remaining_actions[2] as usize;
+        } else if action_type == 0x81 {
+            action_length =
+                ((remaining_actions[2] as usize) << 8) | (remaining_actions[3] as usize);
+        } else if action_type > 0x81 {
+            panic!("Invalid action type");
+        }
+
+        let start_idx = match action_type {
+            0x80 => 3,
+            0x81 => 4,
+            _ => 2,
+        };
         if remaining_actions.len() < start_idx + action_length {
             panic!("Action bytes too short for specified length");
         }
@@ -58,7 +63,8 @@ where
         let action = GameAction::deserialize(action_bytes).expect("Failed to deserialize action");
 
         // Process the action
-        reducer(&mut public_state, &mut private_state, &action);
+        let context = &mut contexts[player_idx];
+        reducer(&mut public_state, &mut private_state, &action, context);
 
         // Move to next action
         remaining_actions = &remaining_actions[start_idx + action_length..];
@@ -68,11 +74,7 @@ where
 }
 
 pub fn turbo_sp1_program<PublicState, PrivateState, GameAction>(
-    reducer: fn(
-        public_state: &mut PublicState,
-        private_state: &mut PrivateState,
-        action: &GameAction,
-    ),
+    reducer: TurboReducer<PublicState, PrivateState, GameAction>,
 ) where
     PublicState: TurboInitState + SolValue,
     PrivateState: TurboInitState,
@@ -82,6 +84,24 @@ pub fn turbo_sp1_program<PublicState, PrivateState, GameAction>(
     let player_metadata = sp1_zkvm::io::read::<Vec<PlayerMetadata>>();
     let action_raw = sp1_zkvm::io::read::<Vec<u8>>();
 
+    // Create contexts for all players and set them
+    let mut player_contexts = Vec::new();
+    let mut context_refs = Vec::new();
+
+    // First create all the contexts
+    for (i, metadata) in player_metadata.iter().enumerate() {
+        player_contexts.push(TurboActionContext::new(&server_metadata, metadata, i as u8));
+    }
+
+    // Then collect mutable references to them
+    for context in &mut player_contexts {
+        context_refs.push(context);
+    }
+
     // Encode and commit the final public state
-    sp1_zkvm::io::commit_slice(&turbo_sp1_program_inner(reducer, &action_raw));
+    sp1_zkvm::io::commit_slice(&turbo_sp1_program_inner(
+        reducer,
+        &action_raw,
+        &mut context_refs,
+    ));
 }

@@ -2,12 +2,10 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerMetadata {
-    #[serde(with = "hex_serde")]
-    pub random_seed: [u8; 48],
+    pub random_seed: [u32; 16],
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlayerMetadata {
-    #[serde(with = "hex_serde")]
-    pub random_seed: [u8; 48],
+    pub random_seed: [u32; 16],
 }
