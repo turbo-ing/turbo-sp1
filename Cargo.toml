@@ -1,8 +1,10 @@
 [workspace]
-members = ["lib", "program", "script"]
+members = ["lib", "program", "script", "turbo-sp1-program", "turbo-sp1"]
 resolver = "2"
 
 [workspace.dependencies]
+sp1-zkvm = "4.1.7"
+sp1-sdk = "4.1.7"
 alloy-sol-types = "1.0.0"
 alloy-primitives = "1.0.0"
 tiny-keccak = { git = "https://github.com/sp1-patches/tiny-keccak", tag = "patch-2.0.2-sp1-4.0.0", package = "tiny-keccak", features = [

@@ -1,11 +1,12 @@
 [package]
 version = "0.1.0"
-name = "fibonacci-program"
+name = "game-program"
 edition = "2021"
 
 [dependencies]
 alloy-sol-types = { workspace = true }
-sp1-zkvm = "4.1.7"
-fibonacci-lib = { path = "../lib" }
+sp1-zkvm = { workspace = true }
+game-lib = { path = "../lib" }
 alloy-primitives = { workspace = true }
 tiny-keccak = { workspace = true }
+turbo-sp1-program = { path = "../turbo-sp1-program" }

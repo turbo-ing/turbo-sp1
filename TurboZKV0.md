@@ -64,7 +64,7 @@ enum GameAction {
     AttackAction(u64)
 }
 
-impl TurboActionDeserialize for GameAction {
+impl TurboActionSerialization for GameAction {
     ...
 }
 ```

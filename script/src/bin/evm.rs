@@ -10,19 +10,15 @@
 //! RUST_LOG=info cargo run --release --bin evm -- --prove
 //! ```
 
-use alloy_sol_types::SolType;
 use clap::{Parser, ValueEnum};
-use fibonacci_lib::{Board2048, PublicValuesStruct};
 use serde::{Deserialize, Serialize};
-use sp1_sdk::{
-    include_elf, HashableKey, ProverClient, SP1ProofWithPublicValues, SP1Stdin, SP1VerifyingKey,
-};
+use sp1_sdk::{include_elf, HashableKey, ProverClient, SP1Stdin, SP1VerifyingKey};
 use std::num::ParseIntError;
 use std::path::PathBuf;
 use std::str::FromStr;
 
 /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
-pub const FIBONACCI_ELF: &[u8] = include_elf!("fibonacci-program");
+pub const GAME_ELF: &[u8] = include_elf!("game-program");
 
 #[derive(Debug, Clone)]
 struct VecString(Vec<u8>);
@@ -42,14 +38,8 @@ impl FromStr for VecString {
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct EVMArgs {
-    #[arg(long, default_value = "4,8,4,2,4,0,2,2,8,0,0,0,8,8,2,4")]
-    board: VecString,
-
-    #[arg(
-        long,
-        default_value = "0,1,2,3,2,1,0,3,0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3,2,1,0,3,0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3,2,1,0,3,0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3,2,1,0,3,0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3,2,1,0,3,0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3"
-    )]
-    moves: VecString,
+    #[arg(long, default_value = "1,3,1,0,0, 1,3,1,0,1, 1,2,0,2, 1,2,0,1")]
+    actions: VecString,
 
     #[arg(long, value_enum, default_value = "groth16")]
     system: ProofSystem,
@@ -78,22 +68,18 @@ fn main() {
     // Parse the command line arguments.
     let args = EVMArgs::parse();
 
-    let repeated: Vec<_> = (0..10).flat_map(|_| args.moves.0.clone()).collect();
-
     // Setup the prover client.
     let client = ProverClient::from_env();
 
     // Setup the inputs.
     let mut stdin = SP1Stdin::new();
-    stdin.write(&args.board.0);
-    stdin.write(&repeated);
+    stdin.write(&args.actions.0);
 
-    println!("board: {:?}", args.board.0);
-    println!("moves: {:?}", repeated);
+    println!("actions: {:?}", args.actions.0);
 
     // Setup the program for proving.
     let setup_start = std::time::Instant::now();
-    let (pk, vk) = client.setup(FIBONACCI_ELF);
+    let (pk, vk) = client.setup(GAME_ELF);
     let setup_duration = setup_start.elapsed();
     println!("Setup completed in: {:?}", setup_duration);
 

@@ -8,48 +8,9 @@
 #![no_main]
 sp1_zkvm::entrypoint!(main);
 
-use alloy_sol_types::SolType;
-use fibonacci_lib::{fibonacci, PublicValuesStruct};
-use tiny_keccak::{Hasher, Keccak};
+use game_lib::reducer;
+use turbo_sp1_program::program::turbo_sp1_program;
 
 pub fn main() {
-    // Read the initial board state and sequence of moves
-    let board_seq = sp1_zkvm::io::read::<Vec<u8>>();
-    let moves = sp1_zkvm::io::read::<Vec<u8>>();
-
-    // Compute keccak256 of concatenated board_seq and moves
-    let mut combined = board_seq.clone();
-    combined.extend(&moves);
-    let mut hasher = Keccak::v256();
-    hasher.update(&combined);
-    let mut hash = [0u8; 32];
-    hasher.finalize(&mut hash);
-
-    // Convert board sequence into 2D array
-    let mut board = [[0u8; 4]; 4];
-    for i in 0..4 {
-        for j in 0..4 {
-            board[i][j] = board_seq[i * 4 + j];
-        }
-    }
-
-    // Apply each move in sequence
-    for &direction in moves.iter() {
-        board = fibonacci_lib::move_board(&board, direction);
-    }
-
-    // Flatten final board back to sequence
-    let mut final_board = Vec::with_capacity(16);
-    for row in board.iter() {
-        for &cell in row.iter() {
-            final_board.push(cell);
-        }
-    }
-
-    // Encode and commit the final board state and hash
-    let bytes = fibonacci_lib::Board2048::abi_encode(&fibonacci_lib::Board2048 {
-        board: final_board,
-        hash: alloy_sol_types::private::FixedBytes(hash),
-    });
-    sp1_zkvm::io::commit_slice(&bytes);
+    turbo_sp1_program(reducer);
 }

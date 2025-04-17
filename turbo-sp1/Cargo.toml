@@ -1,12 +1,17 @@
 [package]
-name = "game-lib"
+name = "turbo-sp1"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-alloy-primitives = { workspace = true }
 alloy-sol-types = { workspace = true }
-tiny-keccak = { workspace = true }
+sp1-zkvm = { workspace = true }
+sp1-sdk = { workspace = true }
 turbo-sp1-program = { path = "../turbo-sp1-program" }
+game-lib = { path = "../lib" }
+warp = "0.3"
+tokio = { version = "1", features = ["full"] }
+futures-util = "0.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+hex = "0.4"

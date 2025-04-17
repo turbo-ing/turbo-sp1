@@ -17,15 +17,18 @@ name = "vkey"
 path = "src/bin/vkey.rs"
 
 [dependencies]
-sp1-sdk = "4.1.7"
+sp1-sdk = { workspace = true }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 serde = { version = "1.0.200", default-features = false, features = ["derive"] }
 clap = { version = "4.0", features = ["derive", "env"] }
 tracing = "0.1.40"
 hex = "0.4.3"
 alloy-sol-types = { workspace = true }
-fibonacci-lib = { path = "../lib" }
+game-lib = { path = "../lib" }
+turbo-sp1 = { path = "../turbo-sp1" }
 dotenv = "0.15.0"
+warp = "0.3"
+tokio = { version = "1", features = ["full"] }
 
 [build-dependencies]
 sp1-build = "4.1.7"
