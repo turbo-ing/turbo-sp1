@@ -1,5 +1,5 @@
 use sp1_lib::{syscall_bn254_add, syscall_bn254_double};
-use substrate_bn::{AffineG1, Fq, G1};
+use substrate_bn::{arith, AffineG1, Fq, G1};
 
 use crate::{
     crypto::serialize_bn::{bn254_export_g1_u32, bn254_g1_one},
@@ -32,58 +32,15 @@ impl BnRandomizer {
     }
 
     pub fn new_with_seeds(seeds: Vec<[u32; 16]>) -> Self {
-        println!("try seeds: {:?}", seeds);
-
-        let mut seed = AffineG1::from_jacobian(G1::new(
-            Fq::from_str(
-                &seeds[0][0..8]
-                    .iter()
-                    .map(|x| x.to_string())
-                    .collect::<Vec<_>>()
-                    .join(""),
-            )
-            .unwrap(),
-            Fq::from_str(
-                &seeds[0][8..16]
-                    .iter()
-                    .map(|x| x.to_string())
-                    .collect::<Vec<_>>()
-                    .join(""),
-            )
-            .unwrap(),
-            Fq::one(),
-        ))
-        .unwrap();
-
-        for i in 1..seeds.len() {
-            let next_point = AffineG1::from_jacobian(G1::new(
-                Fq::from_str(
-                    &seeds[i][0..8]
-                        .iter()
-                        .map(|x| x.to_string())
-                        .collect::<Vec<_>>()
-                        .join(""),
-                )
-                .unwrap(),
-                Fq::from_str(
-                    &seeds[i][8..16]
-                        .iter()
-                        .map(|x| x.to_string())
-                        .collect::<Vec<_>>()
-                        .join(""),
-                )
-                .unwrap(),
-                Fq::one(),
-            ))
-            .unwrap();
-            seed = seed + next_point;
+        let mut seed: [u32; 16] = [1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0];
+        for s in seeds {
+            unsafe {
+                syscall_bn254_add(&mut seed, &s);
+            }
         }
 
-        let seed_bytes = seeds[0];
-        println!("seed: {:?}", seed_bytes);
-
         Self {
-            current: seed_bytes,
+            current: seed,
             nonce: 0,
         }
     }

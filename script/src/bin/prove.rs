@@ -18,7 +18,7 @@ use rand::thread_rng;
 use sp1_sdk::{include_elf, ProverClient, SP1Stdin};
 use std::num::ParseIntError;
 use std::str::FromStr;
-use substrate_bn::{Fr, G1};
+use substrate_bn::*;
 use turbo_sp1::{
     crypto::{
         serialize_bls::bls12_381_export_g1,
@@ -78,9 +78,9 @@ fn main() {
     // Setup mock server and player random seeds
     let mut rng = thread_rng();
     let server_random_seed_key = Fr::random(&mut rng);
-    let server_random_seed = bn254_g1_one() * server_random_seed_key;
+    let server_random_seed = G1::one() * server_random_seed_key;
     let player_random_seed_key = Fr::random(&mut rng);
-    let player_random_seed = bn254_g1_one() * player_random_seed_key;
+    let player_random_seed = G1::one() * player_random_seed_key;
 
     // Setup mock server and client metadata
     let server_metadata = ServerMetadata {
