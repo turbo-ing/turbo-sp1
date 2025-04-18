@@ -32,10 +32,10 @@ impl BnRandomizer {
     }
 
     pub fn new_with_seeds(seeds: Vec<[u32; 16]>) -> Self {
-        let mut seed: [u32; 16] = [1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0];
-        for s in seeds {
+        let mut seed: [u32; 16] = seeds[0];
+        for s in seeds.as_slice()[1..].iter() {
             unsafe {
-                syscall_bn254_add(&mut seed, &s);
+                syscall_bn254_add(&mut seed, s);
             }
         }
 
