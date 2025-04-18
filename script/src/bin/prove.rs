@@ -98,7 +98,7 @@ fn main() {
     let mut stdin = SP1Stdin::new();
     stdin.write(&server_metadata);
     stdin.write(&player_metadatas);
-    let repeated_actions = args.actions.0.repeat(20);
+    let repeated_actions = args.actions.0.repeat(100);
     stdin.write(&repeated_actions);
 
     println!("actions: {:?}", repeated_actions);
@@ -110,8 +110,9 @@ fn main() {
 
         // Read the output.
         let decoded: GamePublicState = GamePublicState::abi_decode(output.as_slice()).unwrap();
-        let GamePublicState { board } = decoded;
+        let GamePublicState { board, num } = decoded;
         println!("board: {:?}", board);
+        println!("num: {:?}", num);
         // println!("hash: {:?}", hash);
 
         // Record the number of cycles executed.
@@ -146,8 +147,9 @@ fn main() {
         // Read the output.
         let decoded: GamePublicState =
             GamePublicState::abi_decode(proof.public_values.as_slice()).unwrap();
-        let GamePublicState { board } = decoded;
+        let GamePublicState { board, num } = decoded;
         println!("board: {:?}", board);
+        println!("num: {:?}", num);
         // println!("hash: {:?}", hash);
 
         println!(

@@ -46,23 +46,23 @@ impl BnRandomizer {
     }
 
     fn next_rand(&mut self) {
-        self.nonce += 1;
-        if self.nonce % 2 == 1 {
+        if self.nonce % 4 == 0 {
             unsafe {
                 syscall_bn254_double(&mut self.current);
             }
         }
+        self.nonce += 1;
     }
 
     pub fn next_rand_u32(&mut self) -> u32 {
         self.next_rand();
 
-        if self.nonce % 2 == 1 {
-            let result: u64 = (self.current[7] as u64) << 32 | self.current[6] as u64;
-            xsh_rs(result)
-        } else {
-            let result: u64 = (self.current[5] as u64) << 32 | self.current[4] as u64;
-            xsh_rs(result)
+        match self.nonce % 4 {
+            0 => xsh_rs((self.current[7] as u64) << 32 | self.current[6] as u64),
+            1 => xsh_rs((self.current[6] as u64) << 32 | self.current[5] as u64),
+            2 => xsh_rs((self.current[5] as u64) << 32 | self.current[4] as u64),
+            3 => xsh_rs((self.current[4] as u64) << 32 | self.current[3] as u64),
+            _ => unreachable!(),
         }
     }
 }

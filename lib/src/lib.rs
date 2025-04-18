@@ -10,17 +10,21 @@ sol! {
     #[derive(Serialize, Deserialize, Debug)]
     struct GamePublicState {
         uint8[4][4] board;
+        uint32 num;
     }
 
     #[derive(Serialize, Deserialize, Debug)]
     struct GamePrivateState {
-        uint64 moves;
+        uint32 moves;
     }
 }
 
 impl TurboInitState for GamePublicState {
     fn init_state() -> Self {
-        GamePublicState { board: [[0; 4]; 4] }
+        GamePublicState {
+            board: [[0; 4]; 4],
+            num: 0,
+        }
     }
 }
 
@@ -99,139 +103,99 @@ impl TurboActionSerialization for GameAction {
     }
 }
 
+/// Slide non-zero tiles to the left and merge equal adjacent tiles.
+fn slide_and_merge_line(line: [u8; 4]) -> [u8; 4] {
+    let mut out = [0; 4];
+    // Collect non-zero tiles
+    let mut temp = line
+        .iter()
+        .cloned()
+        .filter(|&x| x != 0)
+        .collect::<Vec<u8>>();
+    let mut idx = 0;
+    let mut i = 0;
+    // Merge tiles
+    while i < temp.len() {
+        if i + 1 < temp.len() && temp[i] == temp[i + 1] {
+            out[idx] = temp[i] * 2;
+            i += 2;
+        } else {
+            out[idx] = temp[i];
+            i += 1;
+        }
+        idx += 1;
+    }
+    out
+}
+
+/// Transpose a 4×4 board (rows <-> columns).
+fn transpose(board: &[[u8; 4]; 4]) -> [[u8; 4]; 4] {
+    let mut t = [[0; 4]; 4];
+    for i in 0..4 {
+        for j in 0..4 {
+            t[i][j] = board[j][i];
+        }
+    }
+    t
+}
+
+/// Move the board in one of four directions:
+/// 0 = Up, 1 = Down, 2 = Left, 3 = Right.
 pub fn move_board(board: &[[u8; 4]; 4], direction: u8) -> [[u8; 4]; 4] {
-    let mut grid = *board;
-    let size = 4;
+    let mut result = [[0; 4]; 4];
 
     match direction {
+        // Up: transpose, slide left, transpose back
         0 => {
-            // Up
-            for col in 0..size {
-                let mut write_idx = 0;
-                let mut last_merged = 0;
-
-                for read_idx in 0..size {
-                    if grid[read_idx][col] == 0 {
-                        continue;
-                    }
-
-                    if write_idx > 0
-                        && grid[read_idx][col] == last_merged
-                        && grid[write_idx - 1][col] == last_merged
-                    {
-                        grid[write_idx - 1][col] *= 2;
-                        last_merged = 0;
-                    } else {
-                        grid[write_idx][col] = grid[read_idx][col];
-                        last_merged = grid[read_idx][col];
-                        write_idx += 1;
-                    }
-                }
-
-                while write_idx < size {
-                    grid[write_idx][col] = 0;
-                    write_idx += 1;
+            let tb = transpose(board);
+            let mut moved = [[0; 4]; 4];
+            for i in 0..4 {
+                moved[i] = slide_and_merge_line(tb[i]);
+            }
+            for i in 0..4 {
+                for j in 0..4 {
+                    result[j][i] = moved[i][j];
                 }
             }
         }
+        // Down: transpose, slide right, transpose back
         1 => {
-            // Down
-            for col in 0..size {
-                let mut write_idx = size - 1;
-                let mut last_merged = 0;
-
-                for read_idx in (0..size).rev() {
-                    if grid[read_idx][col] == 0 {
-                        continue;
-                    }
-
-                    if write_idx < size - 1
-                        && grid[read_idx][col] == last_merged
-                        && grid[write_idx + 1][col] == last_merged
-                    {
-                        grid[write_idx + 1][col] *= 2;
-                        last_merged = 0;
-                    } else {
-                        grid[write_idx][col] = grid[read_idx][col];
-                        last_merged = grid[read_idx][col];
-                        write_idx = write_idx.wrapping_sub(1);
-                    }
-                }
-
-                for clear_idx in 0..=write_idx {
-                    if clear_idx >= size {
-                        break;
-                    }
-                    grid[clear_idx][col] = 0;
+            let tb = transpose(board);
+            let mut moved = [[0; 4]; 4];
+            for i in 0..4 {
+                let mut row = tb[i];
+                row.reverse();
+                let mut merged = slide_and_merge_line(row);
+                merged.reverse();
+                moved[i] = merged;
+            }
+            for i in 0..4 {
+                for j in 0..4 {
+                    result[j][i] = moved[i][j];
                 }
             }
         }
+        // Left: slide each row
         2 => {
-            // Left
-            for row in 0..size {
-                let mut write_idx = 0;
-                let mut last_merged = 0;
-
-                for read_idx in 0..size {
-                    if grid[row][read_idx] == 0 {
-                        continue;
-                    }
-
-                    if write_idx > 0
-                        && grid[row][read_idx] == last_merged
-                        && grid[row][write_idx - 1] == last_merged
-                    {
-                        grid[row][write_idx - 1] *= 2;
-                        last_merged = 0;
-                    } else {
-                        grid[row][write_idx] = grid[row][read_idx];
-                        last_merged = grid[row][read_idx];
-                        write_idx += 1;
-                    }
-                }
-
-                while write_idx < size {
-                    grid[row][write_idx] = 0;
-                    write_idx += 1;
-                }
+            for i in 0..4 {
+                result[i] = slide_and_merge_line(board[i]);
             }
         }
+        // Right: reverse each row, slide left, then reverse back
         3 => {
-            // Right
-            for row in 0..size {
-                let mut write_idx = size - 1;
-                let mut last_merged = 0;
-
-                for read_idx in (0..size).rev() {
-                    if grid[row][read_idx] == 0 {
-                        continue;
-                    }
-
-                    if write_idx < size - 1
-                        && grid[row][read_idx] == last_merged
-                        && grid[row][write_idx + 1] == last_merged
-                    {
-                        grid[row][write_idx + 1] *= 2;
-                        last_merged = 0;
-                    } else {
-                        grid[row][write_idx] = grid[row][read_idx];
-                        last_merged = grid[row][read_idx];
-                        write_idx = write_idx.wrapping_sub(1);
-                    }
-                }
-
-                for clear_idx in 0..=write_idx {
-                    if clear_idx >= size {
-                        break;
-                    }
-                    grid[row][clear_idx] = 0;
-                }
+            for i in 0..4 {
+                let mut row = board[i];
+                row.reverse();
+                let mut merged = slide_and_merge_line(row);
+                merged.reverse();
+                result[i] = merged;
             }
         }
+        // Invalid direction: return original
         _ => return *board,
     }
 
-    grid
+    result
 }
 
 pub fn reducer(
@@ -264,8 +228,11 @@ pub fn reducer(
                 }
             }
 
+            let rand = context.rand_u32();
+            public_state.num += rand % 16;
+
             if !empty_positions.is_empty() {
-                let (r, c) = empty_positions[context.rand_u32() as usize % empty_positions.len()];
+                let (r, c) = empty_positions[rand as usize % empty_positions.len()];
                 public_state.board[r][c] = 2;
             }
         }
