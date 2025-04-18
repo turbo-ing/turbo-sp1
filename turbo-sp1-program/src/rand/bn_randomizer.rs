@@ -1,7 +1,10 @@
+use std::mem::transmute;
+
 use sp1_lib::{syscall_bn254_add, syscall_bn254_double};
 use substrate_bn::*;
 
-use crate::{crypto::serialize_bn::bn254_export_g1_u32, rand::pcg::xsh_rs};
+use crate::crypto::serialize_bn::bn254_export_affine_g1_memcpy;
+use crate::rand::pcg::xsh_rs;
 pub struct BnRandomizer {
     current: [u32; 16],
     nonce: u64,
@@ -16,7 +19,7 @@ impl Default for BnRandomizer {
 impl BnRandomizer {
     pub fn new() -> Self {
         Self {
-            current: bn254_export_g1_u32(&G1::one()),
+            current: bn254_export_affine_g1_memcpy(&AffineG1::one()),
             nonce: 0,
         }
     }

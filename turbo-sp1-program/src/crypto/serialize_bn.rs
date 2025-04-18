@@ -1,4 +1,6 @@
-use substrate_bn::{AffineG1, G1};
+use std::mem::transmute;
+
+use substrate_bn::{AffineG1, Fq, G1};
 
 // BN254 serialization
 
@@ -13,11 +15,28 @@ pub fn bn254_export_g1(point: &G1) -> [u8; 64] {
     bytes
 }
 
-pub fn bn254_export_g1_u32(point: &G1) -> [u32; 16] {
-    let bytes = bn254_export_g1(point);
+pub fn bn254_export_affine_g1(affine: &AffineG1) -> [u8; 64] {
+    let mut bytes: [u8; 64] = [0u8; 64];
+    affine.x().to_big_endian(&mut bytes[0..32]).unwrap();
+    affine.y().to_big_endian(&mut bytes[32..64]).unwrap();
+    bytes
+}
+
+pub fn bn254_export_affine_g1_memcpy(affine: &AffineG1) -> [u32; 16] {
     let mut result = [0u32; 16];
-    for i in 0..16 {
-        result[i] = u32::from_be_bytes(bytes[i * 4..(i + 1) * 4].try_into().unwrap());
+
+    unsafe {
+        core::ptr::copy_nonoverlapping(transmute(affine), result.as_mut_ptr(), 16);
     }
+
+    println!("result: {:?}", result);
+
     result
+}
+
+pub fn bn254_import_affine_g1(bytes: &[u8; 64]) -> AffineG1 {
+    let x = Fq::from_slice(&bytes[0..32]).unwrap();
+    let y = Fq::from_slice(&bytes[32..64]).unwrap();
+
+    AffineG1::new(x, y).unwrap()
 }

@@ -20,7 +20,7 @@ use std::num::ParseIntError;
 use std::str::FromStr;
 use substrate_bn::*;
 use turbo_sp1::{
-    crypto::serialize_bn::bn254_export_g1_u32,
+    crypto::serialize_bn::bn254_export_affine_g1_memcpy,
     metadata::{PlayerMetadata, ServerMetadata},
 };
 
@@ -75,16 +75,16 @@ fn main() {
     // Setup mock server and player random seeds
     let mut rng = thread_rng();
     let server_random_seed_key = Fr::random(&mut rng);
-    let server_random_seed = G1::one() * server_random_seed_key;
+    let server_random_seed = AffineG1::one() * server_random_seed_key;
     let player_random_seed_key = Fr::random(&mut rng);
-    let player_random_seed = G1::one() * player_random_seed_key;
+    let player_random_seed = AffineG1::one() * player_random_seed_key;
 
     // Setup mock server and client metadata
     let server_metadata = ServerMetadata {
-        random_seed: bn254_export_g1_u32(&server_random_seed),
+        random_seed: bn254_export_affine_g1_memcpy(&server_random_seed),
     };
     let player_metadata: PlayerMetadata = PlayerMetadata {
-        random_seed: bn254_export_g1_u32(&player_random_seed),
+        random_seed: bn254_export_affine_g1_memcpy(&player_random_seed),
     };
     let player_metadatas = vec![player_metadata];
 
@@ -95,7 +95,7 @@ fn main() {
     let mut stdin = SP1Stdin::new();
     stdin.write(&server_metadata);
     stdin.write(&player_metadatas);
-    let repeated_actions = args.actions.0.repeat(1);
+    let repeated_actions = args.actions.0.repeat(10);
     stdin.write(&repeated_actions);
 
     println!("actions: {:?}", repeated_actions);
