@@ -1,5 +1,4 @@
 use crate::{
-    crypto::serialize_bls::bls12_381_import_g1,
     metadata::{PlayerMetadata, ServerMetadata},
     rand::bn_randomizer::BnRandomizer,
 };

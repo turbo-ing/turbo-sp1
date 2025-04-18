@@ -1,10 +1,4 @@
-use substrate_bn::{AffineG1, Fq, Fr, G1};
-
-// BN254 missing functions
-
-pub fn bn254_g1_one() -> G1 {
-    G1::new(Fq::one(), Fq::from_str("2").unwrap(), Fq::one())
-}
+use substrate_bn::{AffineG1, G1};
 
 // BN254 serialization
 

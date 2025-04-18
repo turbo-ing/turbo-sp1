@@ -5745,7 +5745,6 @@ name = "turbo-sp1-program"
 version = "0.1.0"
 dependencies = [
  "alloy-sol-types 1.0.0",
- "bls12_381 0.8.0",
  "cfg-if",
  "crypto-bigint 0.5.5 (git+https://github.com/sp1-patches/RustCrypto-bigint?tag=patch-0.5.5-sp1-4.0.0)",
  "serde",
