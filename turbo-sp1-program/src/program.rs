@@ -62,8 +62,11 @@ where
         let action_bytes = &remaining_actions[start_idx..start_idx + action_length];
         let action = GameAction::deserialize(action_bytes).expect("Failed to deserialize action");
 
-        // Process the action
+        // Update action hash in the context
         let context = &mut contexts[player_idx];
+        context.update_action_hash(&remaining_actions[1..start_idx + action_length]);
+
+        // Process the action
         reducer(&mut public_state, &mut private_state, &action, context);
 
         // Move to next action

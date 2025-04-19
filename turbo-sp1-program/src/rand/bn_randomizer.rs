@@ -4,7 +4,8 @@ use sp1_lib::{syscall_bn254_add, syscall_bn254_double};
 use substrate_bn::*;
 
 use crate::crypto::serialize_bn::bn254_export_affine_g1_memcpy;
-use crate::rand::pcg::xsh_rs;
+use crate::rand::pcg::{rxs_m_xs, xsh_rs};
+
 pub struct BnRandomizer {
     current: [u32; 16],
     nonce: u64,
@@ -46,7 +47,7 @@ impl BnRandomizer {
     }
 
     fn next_rand(&mut self) {
-        if self.nonce % 4 == 0 {
+        if self.nonce % 2 == 0 {
             unsafe {
                 syscall_bn254_double(&mut self.current);
             }
@@ -54,15 +55,27 @@ impl BnRandomizer {
         self.nonce += 1;
     }
 
-    pub fn next_rand_u32(&mut self) -> u32 {
+    pub fn next_u32(&mut self) -> u32 {
         self.next_rand();
 
-        match self.nonce % 4 {
+        match self.nonce % 2 {
             0 => xsh_rs((self.current[7] as u64) << 32 | self.current[6] as u64),
-            1 => xsh_rs((self.current[6] as u64) << 32 | self.current[5] as u64),
-            2 => xsh_rs((self.current[5] as u64) << 32 | self.current[4] as u64),
-            3 => xsh_rs((self.current[4] as u64) << 32 | self.current[3] as u64),
+            1 => xsh_rs((self.current[4] as u64) << 32 | self.current[5] as u64),
             _ => unreachable!(),
         }
+    }
+
+    pub fn next_u64(&mut self) -> u64 {
+        self.next_rand();
+
+        match self.nonce % 2 {
+            0 => rxs_m_xs((self.current[7] as u64) << 32 | self.current[6] as u64),
+            1 => rxs_m_xs((self.current[4] as u64) << 32 | self.current[5] as u64),
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn current_seed(&self) -> [u32; 16] {
+        self.current
     }
 }

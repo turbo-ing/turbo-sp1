@@ -24,7 +24,7 @@ pub fn xsh_rs(mut x: u64) -> u32 {
 ///    This mimics the operation: (x ^ (x >> 64)) as u64, where x = (high<<64) | low.
 ///    When computed, this yields (low ^ high).
 /// 3. Rotates the resulting 64-bit value to the right by the computed count.
-pub fn xsl_rr_from_parts(high: u64, low: u64) -> u64 {
+pub fn xsl_rr(high: u64, low: u64) -> u64 {
     // Extract the top 6 bits from the high part.
     let count = (high >> 58) as u32;
 
@@ -37,4 +37,25 @@ pub fn xsl_rr_from_parts(high: u64, low: u64) -> u64 {
 
     // Rotate the result to the right by `count` bits.
     x64.rotate_right(count)
+}
+
+/// RXS-M-XS (64 → 64 bits)
+///
+/// This function takes a 64-bit unsigned integer `x` and performs the PCG RXS-M-XS transform:
+/// 1. Extracts a 5-bit count from the most significant bits (x >> 59)
+/// 2. XORs x with itself shifted right by (5 + count) bits
+/// 3. Multiplies by a constant multiplier
+/// 4. XORs with itself shifted right by 43 bits
+pub fn rxs_m_xs(mut x: u64) -> u64 {
+    // Extract 5-bit count from most significant bits
+    let count = (x >> 59) as u32;
+
+    // XOR with variable right shift
+    x ^= x >> (5 + count);
+
+    // Multiply by constant
+    x = x.wrapping_mul(12605985483714917081);
+
+    // XOR with fixed right shift
+    x ^ (x >> 43)
 }

@@ -75,7 +75,7 @@ fn main() {
     let mut stdin = SP1Stdin::new();
     stdin.write(&args.actions.0);
 
-    println!("actions: {:?}", args.actions.0);
+    // println!("actions: {:?}", args.actions.0);
 
     // Setup the program for proving.
     let setup_start = std::time::Instant::now();
