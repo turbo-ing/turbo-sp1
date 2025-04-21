@@ -5,13 +5,12 @@ use std::{convert::Infallible, sync::Arc};
 use tokio::sync::{mpsc, Mutex};
 use warp::Filter;
 
-use sp1_sdk::{EnvProver, HashableKey, ProverClient};
+use sp1_sdk::ProverClient;
 use turbo_sp1_program::{program::TurboReducer, traits::TurboActionSerialization};
 
 use crate::proof::{handle_proof_request, ProofType};
 use crate::proof_worker::{spawn_proof_workers, ProofJob, ProofRequest};
 use crate::prove_queue::{ProveQueue, ProveStatus};
-use crate::session::TurboSession;
 use crate::session_manager::SessionManager;
 use crate::session_simple::create_session_json;
 use crate::warp::rejection::{handle_rejection, ServerError};
@@ -141,15 +140,19 @@ where
                 }
 
                 // Start a new proof job
-                tx_jobs.send((
-                    task_id_clone,
-                    ProofRequest::new(
-                        session_option.unwrap(),
-                        proof_type,
-                        client.clone(),
-                        elf.clone(),
-                    ),
-                ));
+                tx_jobs
+                    .send((
+                        task_id_clone,
+                        ProofRequest::new(
+                            session_option.unwrap(),
+                            proof_type,
+                            client.clone(),
+                            elf.clone(),
+                        ),
+                    ))
+                    .map_err(|_| {
+                        ServerError::internal_server_error("Error starting proof job".into())
+                    })?;
 
                 // Return the task ID to the client
                 Ok(warp::reply::json(&json!({
