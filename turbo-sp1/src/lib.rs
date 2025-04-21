@@ -1,4 +1,6 @@
 pub use turbo_sp1_program::*;
+pub mod proof;
+pub mod proof_worker;
 pub mod prove_queue;
 pub mod server;
 pub mod session;

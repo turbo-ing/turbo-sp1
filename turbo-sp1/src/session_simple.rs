@@ -1,10 +1,8 @@
-use std::sync::{Arc, Mutex};
-
 use turbo_sp1_program::{program::TurboReducer, traits::TurboActionSerialization};
 
-use crate::{session::TurboSession, session_manager::SessionManager};
+use crate::session_manager::SessionManager;
 
-pub fn create_session_json<PublicState, PrivateState, GameAction>(
+pub async fn create_session_json<PublicState, PrivateState, GameAction>(
     session_manager: &mut SessionManager<PublicState, PrivateState, GameAction>,
     reducer: TurboReducer<PublicState, PrivateState, GameAction>,
     actions: serde_json::Value,
@@ -16,9 +14,10 @@ where
 {
     let session = session_manager
         .create_session(reducer)
+        .await
         .ok_or("Failed to create session")?;
 
-    let mut session_guard = session.lock().map_err(|_| "Deadlock session")?;
+    let mut session_guard = session.lock().await;
 
     let actions_bytes = match actions {
         serde_json::Value::Array(_) => {

@@ -1,88 +1,25 @@
 use alloy_sol_types::SolValue;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::json;
-use std::{convert::Infallible, sync::Arc, sync::Mutex};
+use std::{convert::Infallible, sync::Arc};
+use tokio::sync::{mpsc, Mutex};
 use warp::Filter;
 
-use sp1_sdk::{EnvProver, HashableKey, ProverClient, SP1Stdin};
+use sp1_sdk::{EnvProver, HashableKey, ProverClient};
 use turbo_sp1_program::{program::TurboReducer, traits::TurboActionSerialization};
 
+use crate::proof::{handle_proof_request, ProofType};
+use crate::proof_worker::{spawn_proof_workers, ProofJob, ProofRequest};
 use crate::prove_queue::{ProveQueue, ProveStatus};
 use crate::session::TurboSession;
 use crate::session_manager::SessionManager;
 use crate::session_simple::create_session_json;
 use crate::warp::rejection::{handle_rejection, ServerError};
 
-#[derive(Debug)]
-enum ProofType {
-    Execute,
-    Core,
-    Compressed,
-    Groth16,
-    Plonk,
-}
-
-async fn handle_proof_request<
-    PublicState: Default
-        + SolValue
-        + Serialize
-        + From<<<PublicState as SolValue>::SolType as alloy_sol_types::SolType>::RustType>
-        + Send
-        + Sync,
-    PrivateState: Default + Send + Sync,
-    GameAction: TurboActionSerialization + Send + Sync,
->(
-    session: Arc<Mutex<TurboSession<PublicState, PrivateState, GameAction>>>,
-    client: Arc<EnvProver>,
-    elf: Arc<Vec<u8>>,
-    proof_type: ProofType,
-    proof_id: String,
-) -> Result<serde_json::Value, warp::Rejection> {
-    // Setup the inputs
-    let stdin = session.lock().unwrap().sp1_stdin();
-
-    // Try executing the circuit first
-    let (output, report) = client
-        .execute(&elf, &stdin)
-        .run()
-        .map_err(|_| ServerError::bad_request("Failed to execute circuit".into()))?;
-
-    match proof_type {
-        ProofType::Execute => {
-            let state: PublicState = PublicState::abi_decode(output.as_slice())
-                .map_err(|_| ServerError::bad_request("Failed to decode output state".into()))?;
-            Ok(json!({
-                "cycle_count": report.total_instruction_count(),
-                "state": state
-            }))
-        }
-        ProofType::Core => {
-            let (pk, vk) = client.setup(&elf);
-            let proof = client
-                .prove(&pk, &stdin)
-                .run()
-                .expect("failed to generate proof");
-            let state: PublicState =
-                PublicState::abi_decode(proof.public_values.as_slice()).unwrap();
-
-            proof
-                .save(format!("proofs/{}.bin", proof_id))
-                .map_err(|_| ServerError::internal_server_error("Failed to save proof".into()))?;
-
-            Ok(json!({
-                "vkey": vk.bytes32().to_string(),
-                "public_values": format!("0x{}", hex::encode(proof.public_values.as_slice())),
-                "state": state,
-                "cycle_count": report.total_instruction_count()
-            }))
-        }
-        _ => Err(ServerError::bad_request("Invalid proof type".into())),
-    }
-}
-
 pub fn turbo_sp1_routes<PublicState, PrivateState, GameAction>(
     elf: &[u8],
     reducer: TurboReducer<PublicState, PrivateState, GameAction>,
+    num_workers: usize,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = Infallible> + Clone
 where
     PublicState: Default
@@ -90,18 +27,24 @@ where
         + Serialize
         + From<<<PublicState as SolValue>::SolType as alloy_sol_types::SolType>::RustType>
         + Send
-        + Sync,
-    PrivateState: Default + Send + Sync,
-    GameAction: TurboActionSerialization + Send + Sync,
+        + Sync
+        + 'static,
+    PrivateState: Default + Send + Sync + 'static,
+    GameAction: TurboActionSerialization + Send + Sync + 'static,
 {
     let client_arc = Arc::new(ProverClient::from_env());
     let elf_arc = Arc::new(elf.to_vec());
     let prove_queue_arc = Arc::new(ProveQueue::new());
-    let session_manager_arc = Arc::new(Mutex::new(SessionManager::<
-        PublicState,
-        PrivateState,
-        GameAction,
-    >::new()));
+    let session_manager_arc = Arc::new(Mutex::new(SessionManager::new()));
+    let (tx_jobs, rx_jobs) =
+        mpsc::unbounded_channel::<ProofJob<PublicState, PrivateState, GameAction>>();
+    let tx_jobs_arc = Arc::new(tx_jobs);
+
+    spawn_proof_workers::<PublicState, PrivateState, GameAction>(
+        num_workers,
+        rx_jobs,
+        prove_queue_arc.clone(),
+    );
 
     let execute_client = client_arc.clone();
     let execute_elf = elf_arc.clone();
@@ -115,12 +58,23 @@ where
             let session_manager = execute_session_manager.clone();
 
             async move {
-                let mut session_manager_guard = session_manager.lock().unwrap();
-                let session_id = create_session_json(&mut session_manager_guard, reducer, actions)
-                    .map_err(|err| ServerError::bad_request(err.to_string()))?;
-                let session = session_manager_guard
-                    .get_session(&session_id)
-                    .ok_or(ServerError::bad_request("Failed to get session".into()))?;
+                let session = {
+                    let mut session_manager_guard = session_manager.lock().await;
+                    let session_id =
+                        match create_session_json(&mut session_manager_guard, reducer, actions)
+                            .await
+                        {
+                            Ok(id) => id,
+                            Err(err) => return Err(ServerError::bad_request(err.to_string())),
+                        };
+                    match session_manager_guard.get_session(&session_id).await {
+                        Some(session) => session,
+                        None => {
+                            return Err(ServerError::bad_request("Failed to get session".into()))
+                        }
+                    }
+                };
+
                 handle_proof_request::<PublicState, PrivateState, GameAction>(
                     session,
                     client,
@@ -130,6 +84,7 @@ where
                 )
                 .await
                 .map(|reply| warp::reply::json(&reply))
+                .map_err(|e| ServerError::bad_request(e.to_string()))
             }
         });
 
@@ -137,6 +92,7 @@ where
     let prove_elf = elf_arc.clone();
     let prove_queue = prove_queue_arc.clone();
     let prove_session_manager = session_manager_arc.clone();
+    let prove_tx_jobs = tx_jobs_arc.clone();
     let prove_route = warp::path!("prove" / String)
         .and(warp::post())
         .and(warp::body::json())
@@ -144,8 +100,8 @@ where
             let client = prove_client.clone();
             let elf = prove_elf.clone();
             let queue = prove_queue.clone();
-            let queue2 = prove_queue.clone();
             let session_manager = prove_session_manager.clone();
+            let tx_jobs = prove_tx_jobs.clone();
 
             async move {
                 let proof_type = match proof_type.as_str() {
@@ -160,65 +116,40 @@ where
                 let task_id = queue.enqueue_task();
                 let task_id_clone = task_id.clone();
 
-                // Spawn a new task to handle the proof generation
-                let handle = tokio::spawn({
-                    let actions = actions.clone();
-                    let elf = elf.clone();
-                    let client = client.clone();
+                // Build a session instance
+                let mut session_manager_guard = session_manager.lock().await;
+                let session_id_result =
+                    create_session_json(&mut session_manager_guard, reducer, actions).await;
 
-                    async move {
-                        let mut session_manager_guard = session_manager.lock().unwrap();
-                        let session_id_result =
-                            create_session_json(&mut session_manager_guard, reducer, actions);
+                if let Err(err) = session_id_result {
+                    queue.set_status(&task_id_clone, ProveStatus::Error(err.to_string()));
+                    return Err(ServerError::bad_request(err.to_string()));
+                }
 
-                        if let Err(err) = session_id_result {
-                            queue.set_status(&task_id_clone, ProveStatus::Error(err.to_string()));
-                            queue.cleanup_handle(&task_id_clone);
-                            return;
-                        }
+                let session_id = session_id_result.unwrap();
 
-                        let session_id = session_id_result.unwrap();
+                let session_option = session_manager_guard.get_session(&session_id).await;
 
-                        let session_option = session_manager_guard.get_session(&session_id);
+                if session_option.is_none() {
+                    queue.set_status(
+                        &task_id_clone,
+                        ProveStatus::Error("Failed to get session".into()),
+                    );
+                    return Err(ServerError::internal_server_error(
+                        "Failed to get session".into(),
+                    ));
+                }
 
-                        if session_option.is_none() {
-                            queue.set_status(
-                                &task_id_clone,
-                                ProveStatus::Error("Failed to get session".into()),
-                            );
-                            queue.cleanup_handle(&task_id_clone);
-                            return;
-                        }
-
-                        let session = session_option.unwrap();
-
-                        let result = match handle_proof_request::<
-                            PublicState,
-                            PrivateState,
-                            GameAction,
-                        >(
-                            session, client, elf, proof_type, task_id_clone.clone()
-                        )
-                        .await
-                        {
-                            Ok(reply) => ProveStatus::Done(reply),
-                            Err(e) => {
-                                let error_msg = if let Some(server_error) = e.find::<ServerError>()
-                                {
-                                    server_error.message()
-                                } else {
-                                    "Internal Server Error".to_string()
-                                };
-                                ProveStatus::Error(error_msg)
-                            }
-                        };
-
-                        queue.set_status(&task_id_clone, result);
-                        queue.cleanup_handle(&task_id_clone);
-                    }
-                });
-
-                queue2.store_handle(&task_id, handle);
+                // Start a new proof job
+                tx_jobs.send((
+                    task_id_clone,
+                    ProofRequest::new(
+                        session_option.unwrap(),
+                        proof_type,
+                        client.clone(),
+                        elf.clone(),
+                    ),
+                ));
 
                 // Return the task ID to the client
                 Ok(warp::reply::json(&json!({
@@ -237,6 +168,10 @@ where
                 async move {
                     match queue.get_status(&task_id) {
                         Some(status) => match status {
+                            ProveStatus::Queued => Ok(warp::reply::json(&json!({
+                                "proof_id": task_id,
+                                "status": "queued"
+                            }))),
                             ProveStatus::InProgress => Ok(warp::reply::json(&json!({
                                 "proof_id": task_id,
                                 "status": "in_progress"

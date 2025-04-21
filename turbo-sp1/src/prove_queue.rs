@@ -1,11 +1,11 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use tokio::task::JoinHandle;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ProveStatus {
+    Queued,
     InProgress,
     Done(serde_json::Value),
     Error(String),
@@ -13,7 +13,6 @@ pub enum ProveStatus {
 
 pub struct ProveQueue {
     tasks: Arc<Mutex<HashMap<String, ProveStatus>>>,
-    handles: Arc<Mutex<HashMap<String, JoinHandle<()>>>>,
 }
 
 impl Default for ProveQueue {
@@ -26,7 +25,6 @@ impl ProveQueue {
     pub fn new() -> Self {
         Self {
             tasks: Arc::new(Mutex::new(HashMap::new())),
-            handles: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -35,7 +33,7 @@ impl ProveQueue {
         self.tasks
             .lock()
             .unwrap()
-            .insert(id.clone(), ProveStatus::InProgress);
+            .insert(id.clone(), ProveStatus::Queued);
         id
     }
 
@@ -45,14 +43,6 @@ impl ProveQueue {
 
     pub fn set_status(&self, id: &String, status: ProveStatus) {
         self.tasks.lock().unwrap().insert(id.to_string(), status);
-    }
-
-    pub fn store_handle(&self, id: &String, handle: JoinHandle<()>) {
-        self.handles.lock().unwrap().insert(id.to_string(), handle);
-    }
-
-    pub fn cleanup_handle(&self, id: &str) {
-        self.handles.lock().unwrap().remove(id);
     }
 }
 

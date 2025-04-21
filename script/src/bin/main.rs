@@ -11,7 +11,7 @@ async fn main() {
     sp1_sdk::utils::setup_logger();
     dotenv::dotenv().ok();
 
-    let routes = turbo_sp1_routes(GAME_ELF, reducer);
+    let routes = turbo_sp1_routes(GAME_ELF, reducer, 4);
 
     // Start the server on port 3030.
     println!("Server running on http://localhost:3030");
