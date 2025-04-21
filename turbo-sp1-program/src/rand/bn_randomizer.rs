@@ -1,5 +1,3 @@
-use std::mem::transmute;
-
 use sp1_lib::{syscall_bn254_add, syscall_bn254_double};
 use substrate_bn::*;
 

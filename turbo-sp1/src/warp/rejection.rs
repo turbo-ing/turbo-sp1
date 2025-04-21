@@ -27,6 +27,18 @@ impl ServerError {
     pub fn bad_request(message: String) -> Rejection {
         warp::reject::custom(Self::new(message, 400))
     }
+
+    pub fn not_found(message: String) -> Rejection {
+        warp::reject::custom(Self::new(message, 404))
+    }
+
+    pub fn message(&self) -> String {
+        self.message.clone()
+    }
+
+    pub fn status_code(&self) -> u16 {
+        self.status_code
+    }
 }
 
 // The handle_rejection function inspects the Rejection and converts it to a JSON response.

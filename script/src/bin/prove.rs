@@ -12,7 +12,6 @@
 
 use alloy_sol_types::SolType;
 use clap::Parser;
-use ff::Field;
 use game_lib::GamePublicState;
 use rand::thread_rng;
 use sp1_sdk::{include_elf, ProverClient, SP1Stdin};
@@ -95,7 +94,7 @@ fn main() {
     let mut stdin = SP1Stdin::new();
     stdin.write(&server_metadata);
     stdin.write(&player_metadatas);
-    let repeated_actions = args.actions.0.repeat(100);
+    let repeated_actions = args.actions.0.repeat(10);
     stdin.write(&repeated_actions);
 
     //println!("actions: {:?}", repeated_actions);

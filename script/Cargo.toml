@@ -33,7 +33,6 @@ substrate-bn = { git = "https://github.com/sp1-patches/bn", tag = "patch-0.6.0-s
 bls12_381 = { git = "https://github.com/sp1-patches/bls12_381", tag = "patch-0.8.0-sp1-4.0.0-v2", features = [
   "experimental",
 ] }
-ff = "0.13"
 rand = "0.8"
 
 [build-dependencies]

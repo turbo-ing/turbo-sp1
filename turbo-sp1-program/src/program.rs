@@ -3,7 +3,7 @@ use alloy_sol_types::SolValue;
 use crate::{
     context::TurboActionContext,
     metadata::{PlayerMetadata, ServerMetadata},
-    traits::{TurboActionSerialization, TurboInitState},
+    traits::TurboActionSerialization,
 };
 
 pub type TurboReducer<PublicState, PrivateState, GameAction> = fn(
@@ -28,12 +28,12 @@ fn turbo_sp1_program_inner<PublicState, PrivateState, GameAction>(
     contexts: &mut [&mut TurboActionContext],
 ) -> Vec<u8>
 where
-    PublicState: TurboInitState + SolValue,
-    PrivateState: TurboInitState,
+    PublicState: Default + SolValue,
+    PrivateState: Default,
     GameAction: TurboActionSerialization,
 {
-    let mut public_state = PublicState::init_state();
-    let mut private_state = PrivateState::init_state();
+    let mut public_state = PublicState::default();
+    let mut private_state = PrivateState::default();
     let mut remaining_actions = action_raw;
 
     while !remaining_actions.is_empty() {
@@ -79,8 +79,8 @@ where
 pub fn turbo_sp1_program<PublicState, PrivateState, GameAction>(
     reducer: TurboReducer<PublicState, PrivateState, GameAction>,
 ) where
-    PublicState: TurboInitState + SolValue,
-    PrivateState: TurboInitState,
+    PublicState: Default + SolValue,
+    PrivateState: Default,
     GameAction: TurboActionSerialization,
 {
     let server_metadata = sp1_zkvm::io::read::<ServerMetadata>();
