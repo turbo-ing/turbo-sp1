@@ -4,7 +4,7 @@ use alloy_sol_types::SolValue;
 use serde::Serialize;
 use sp1_sdk::EnvProver;
 use tokio::sync::{mpsc, Mutex};
-use turbo_sp1_program::traits::TurboActionSerialization;
+use turbo_program::traits::TurboActionSerialization;
 
 use crate::{
     proof::{handle_proof_request, ProofType},

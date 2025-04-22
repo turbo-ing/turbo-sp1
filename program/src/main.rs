@@ -9,8 +9,8 @@
 sp1_zkvm::entrypoint!(main);
 
 use game_lib::reducer;
-use turbo_sp1_program::program::turbo_sp1_program;
+use turbo_program::program::turbo_program;
 
 pub fn main() {
-    turbo_sp1_program(reducer);
+    turbo_program(reducer);
 }

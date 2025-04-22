@@ -1,4 +1,4 @@
-pub use turbo_sp1_program::*;
+pub use turbo_program::*;
 pub mod proof;
 pub mod proof_worker;
 pub mod prove_queue;

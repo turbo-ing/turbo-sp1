@@ -1,5 +1,5 @@
 [workspace]
-members = ["lib", "program", "script", "turbo-sp1-program", "turbo-sp1"]
+members = ["lib", "program", "script", "turbo-program", "turbo-sp1"]
 resolver = "2"
 
 [workspace.dependencies]

@@ -22,7 +22,7 @@ Stdin Format:
 - Actions
 */
 
-fn turbo_sp1_program_inner<PublicState, PrivateState, GameAction>(
+fn turbo_program_inner<PublicState, PrivateState, GameAction>(
     reducer: TurboReducer<PublicState, PrivateState, GameAction>,
     action_raw: &[u8],
     contexts: &mut [&mut TurboActionContext],
@@ -76,7 +76,7 @@ where
     PublicState::abi_encode(&public_state)
 }
 
-pub fn turbo_sp1_program<PublicState, PrivateState, GameAction>(
+pub fn turbo_program<PublicState, PrivateState, GameAction>(
     reducer: TurboReducer<PublicState, PrivateState, GameAction>,
 ) where
     PublicState: Default + SolValue,
@@ -102,7 +102,7 @@ pub fn turbo_sp1_program<PublicState, PrivateState, GameAction>(
     }
 
     // Encode and commit the final public state
-    sp1_zkvm::io::commit_slice(&turbo_sp1_program_inner(
+    sp1_zkvm::io::commit_slice(&turbo_program_inner(
         reducer,
         &action_raw,
         &mut context_refs,

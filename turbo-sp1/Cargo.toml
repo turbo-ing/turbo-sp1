@@ -7,7 +7,7 @@ edition = "2021"
 alloy-sol-types = { workspace = true }
 sp1-zkvm = { workspace = true }
 sp1-sdk = { workspace = true }
-turbo-sp1-program = { path = "../turbo-sp1-program" }
+turbo-program = { path = "../turbo-program" }
 game-lib = { path = "../lib" }
 warp = "0.3"
 tokio = { version = "1", features = ["full"] }

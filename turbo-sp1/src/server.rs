@@ -6,7 +6,7 @@ use tokio::sync::{mpsc, Mutex};
 use warp::Filter;
 
 use sp1_sdk::ProverClient;
-use turbo_sp1_program::{program::TurboReducer, traits::TurboActionSerialization};
+use turbo_program::{program::TurboReducer, traits::TurboActionSerialization};
 
 use crate::proof::{handle_proof_request, ProofType};
 use crate::proof_worker::{spawn_proof_workers, ProofJob, ProofRequest};

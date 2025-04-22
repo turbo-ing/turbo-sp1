@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use turbo_sp1_program::program::TurboReducer;
-use turbo_sp1_program::traits::TurboActionSerialization;
+use turbo_program::program::TurboReducer;
+use turbo_program::traits::TurboActionSerialization;
 use uuid::Uuid;
 
 use crate::session::TurboSession;

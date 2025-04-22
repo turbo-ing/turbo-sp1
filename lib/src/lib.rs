@@ -1,7 +1,7 @@
 use alloy_sol_types::sol;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use turbo_sp1_program::{context::TurboActionContext, traits::TurboActionSerialization};
+use turbo_program::{context::TurboActionContext, traits::TurboActionSerialization};
 
 sol! {
     #[derive(Serialize, Deserialize, Debug, Default)]

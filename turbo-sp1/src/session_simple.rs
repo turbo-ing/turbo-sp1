@@ -1,4 +1,4 @@
-use turbo_sp1_program::{program::TurboReducer, traits::TurboActionSerialization};
+use turbo_program::{program::TurboReducer, traits::TurboActionSerialization};
 
 use crate::session_manager::SessionManager;
 

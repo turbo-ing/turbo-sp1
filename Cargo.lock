@@ -1989,7 +1989,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tiny-keccak 2.0.2 (git+https://github.com/sp1-patches/tiny-keccak?tag=patch-2.0.2-sp1-4.0.0)",
- "turbo-sp1-program",
+ "turbo-program",
 ]
 
 [[package]]
@@ -2001,7 +2001,7 @@ dependencies = [
  "game-lib",
  "sp1-zkvm",
  "tiny-keccak 2.0.2 (git+https://github.com/sp1-patches/tiny-keccak?tag=patch-2.0.2-sp1-4.0.0)",
- "turbo-sp1-program",
+ "turbo-program",
 ]
 
 [[package]]
@@ -5723,6 +5723,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "turbo-program"
+version = "0.1.0"
+dependencies = [
+ "alloy-sol-types 1.0.0",
+ "cfg-if",
+ "crypto-bigint 0.5.5 (git+https://github.com/sp1-patches/RustCrypto-bigint?tag=patch-0.5.5-sp1-4.0.0)",
+ "serde",
+ "sp1-lib",
+ "sp1-zkvm",
+ "substrate-bn",
+]
+
+[[package]]
 name = "turbo-sp1"
 version = "0.1.0"
 dependencies = [
@@ -5737,22 +5750,9 @@ dependencies = [
  "sp1-zkvm",
  "substrate-bn",
  "tokio",
- "turbo-sp1-program",
+ "turbo-program",
  "uuid",
  "warp",
-]
-
-[[package]]
-name = "turbo-sp1-program"
-version = "0.1.0"
-dependencies = [
- "alloy-sol-types 1.0.0",
- "cfg-if",
- "crypto-bigint 0.5.5 (git+https://github.com/sp1-patches/RustCrypto-bigint?tag=patch-0.5.5-sp1-4.0.0)",
- "serde",
- "sp1-lib",
- "sp1-zkvm",
- "substrate-bn",
 ]
 
 [[package]]

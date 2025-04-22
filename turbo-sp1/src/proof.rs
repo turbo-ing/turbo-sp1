@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sp1_sdk::{EnvProver, HashableKey};
 use tokio::sync::Mutex;
-use turbo_sp1_program::traits::TurboActionSerialization;
+use turbo_program::traits::TurboActionSerialization;
 
 use crate::session::TurboSession;
 
