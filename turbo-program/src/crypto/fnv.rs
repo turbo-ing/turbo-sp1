@@ -1,21 +1,39 @@
+#[cfg(not(target_os = "zkvm"))]
+use crypto_bigint::U256;
+
+#[cfg(target_os = "zkvm")]
 use sp1_lib::sys_bigint;
 
-// 0xdd268dbcaac550362d98c384c4e576ccc8b1536847b6bbb31023b4c8caee0535 % 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47
+// dd268dbcaac550362d98c384c4e576ccc8b1536847b6bbb31023b4c8caee0535
+#[cfg(target_os = "zkvm")]
 const OFFSET: [u32; 8] = [
-    0x68fa1019, 0x1fa1846d, 0xa5ef917e, 0x6aaba922, 0xbee01556, 0x4c57acaa, 0x25fecf8f, 0x1b9553f1,
+    0xcaee0535, 0x1023b4c8, 0x47b6bbb3, 0xc8b15368, 0xc4e576cc, 0x2d98c384, 0xaac55036, 0xdd268dbc,
 ];
 
+#[cfg(target_os = "zkvm")]
 const PRIME: [u32; 8] = [
     0x00000163, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000100, 0x00000000, 0x00000000,
 ];
 
-const MODULUS: [u32; 8] = [
-    0xd87cfd47, 0x3c208c16, 0x6871ca8d, 0x97816a91, 0x8181585d, 0xb85045b6, 0xe131a029, 0x30644e72,
-];
+#[cfg(target_os = "zkvm")]
+const MODULUS: [u32; 8] = [0, 0, 0, 0, 0, 0, 0, 0];
+
+#[cfg(not(target_os = "zkvm"))]
+const OFFSET_U256: U256 =
+    U256::from_be_hex("dd268dbcaac550362d98c384c4e576ccc8b1536847b6bbb31023b4c8caee0535");
+
+#[cfg(not(target_os = "zkvm"))]
+const PRIME_U256: U256 =
+    U256::from_be_hex("0000000000000000000001000000000000000000000000000000000000000163");
 
 // Modified FnvHasher that make it faster by hashing 32 bits at a time
 pub struct FnvHasher {
+    #[cfg(not(target_os = "zkvm"))]
+    hash: U256,
+
+    #[cfg(target_os = "zkvm")]
     hash: [u32; 8],
+
     shift: u32,
 }
 
@@ -28,21 +46,41 @@ impl Default for FnvHasher {
 impl FnvHasher {
     pub fn new() -> Self {
         Self {
+            #[cfg(not(target_os = "zkvm"))]
+            hash: OFFSET_U256,
+
+            #[cfg(target_os = "zkvm")]
             hash: OFFSET,
+
             shift: 0,
         }
     }
 
     pub fn next_single(&mut self, data: u8) {
-        if self.shift >= 32 {
-            unsafe {
-                sys_bigint(&mut self.hash, 0, &self.hash, &PRIME, &MODULUS);
+        #[cfg(not(target_os = "zkvm"))]
+        {
+            if self.shift >= 32 {
+                self.hash = self.hash.wrapping_mul(&PRIME_U256);
+                self.shift = 0;
             }
-            self.shift = 0;
+            self.hash = self.hash.wrapping_xor(&U256::from(data << self.shift));
+            self.shift += 1;
         }
 
-        self.hash[0] ^= (data as u32) << self.shift;
-        self.shift += 1;
+        #[cfg(target_os = "zkvm")]
+        {
+            if self.shift >= 32 {
+                unsafe {
+                    sys_bigint(&mut self.hash, 0, &self.hash, &PRIME, &MODULUS);
+                }
+                self.shift = 0;
+            }
+
+            self.hash[0] ^= (data as u32) << self.shift;
+            self.shift += 1;
+        }
+
+        println!("hash: {:?}", self.hash);
     }
 
     pub fn next(&mut self, data: &[u8]) {
@@ -52,6 +90,19 @@ impl FnvHasher {
     }
 
     pub fn get(&self) -> [u32; 8] {
+        #[cfg(not(target_os = "zkvm"))]
+        {
+            let words = self.hash.to_words();
+            let mut result = [0u32; 8];
+            for i in 0..4 {
+                let bytes = words[i].to_le_bytes();
+                result[i * 2] = u32::from_le_bytes(bytes[0..4].try_into().unwrap());
+                result[i * 2 + 1] = u32::from_le_bytes(bytes[4..8].try_into().unwrap());
+            }
+            result
+        }
+
+        #[cfg(target_os = "zkvm")]
         self.hash
     }
 }
