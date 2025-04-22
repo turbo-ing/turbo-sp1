@@ -5,7 +5,7 @@ use sp1_sdk::SP1Stdin;
 use substrate_bn::*;
 use turbo_program::{
     context::TurboActionContext,
-    crypto::serialize_bn::bn254_export_affine_g1_memcpy,
+    crypto::bn_serialize::bn254_export_affine_g1_memcpy,
     metadata::{PlayerMetadata, ServerMetadata},
     program::TurboReducer,
     traits::TurboActionSerialization,

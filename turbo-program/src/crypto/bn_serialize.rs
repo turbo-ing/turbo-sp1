@@ -40,3 +40,11 @@ pub fn bn254_import_affine_g1(bytes: &[u8; 64]) -> AffineG1 {
 
     AffineG1::new(x, y).unwrap()
 }
+
+pub fn bn254_import_affine_g1_memcpy(data: &[u32; 16]) -> AffineG1 {
+    let mut affine = AffineG1::zero();
+    unsafe {
+        core::ptr::copy_nonoverlapping(data.as_ptr(), transmute(&mut affine), 16);
+    }
+    affine
+}

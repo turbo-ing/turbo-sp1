@@ -19,7 +19,7 @@ use std::num::ParseIntError;
 use std::str::FromStr;
 use substrate_bn::*;
 use turbo_sp1::{
-    crypto::serialize_bn::bn254_export_affine_g1_memcpy,
+    crypto::bn_serialize::bn254_export_affine_g1_memcpy,
     metadata::{PlayerMetadata, ServerMetadata},
 };
 
@@ -94,7 +94,7 @@ fn main() {
     let mut stdin = SP1Stdin::new();
     stdin.write(&server_metadata);
     stdin.write(&player_metadatas);
-    let repeated_actions = args.actions.0.repeat(10);
+    let repeated_actions = args.actions.0.repeat(100);
     stdin.write(&repeated_actions);
 
     //println!("actions: {:?}", repeated_actions);
