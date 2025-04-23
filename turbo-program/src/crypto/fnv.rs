@@ -16,6 +16,9 @@ const PRIME: [u32; 8] = [
 ];
 
 #[cfg(target_os = "zkvm")]
+const PRIME32: u32 = 0x01000193;
+
+#[cfg(target_os = "zkvm")]
 const MODULUS: [u32; 8] = [0, 0, 0, 0, 0, 0, 0, 0];
 
 #[cfg(not(target_os = "zkvm"))]
@@ -34,7 +37,7 @@ pub struct FnvHasher {
     #[cfg(target_os = "zkvm")]
     hash: [u32; 8],
 
-    shift: u32,
+    shift: usize,
 }
 
 impl Default for FnvHasher {
@@ -57,35 +60,39 @@ impl FnvHasher {
     }
 
     pub fn next_single(&mut self, data: u8) {
+        // println!("data: {:?}", data);
+
         #[cfg(not(target_os = "zkvm"))]
         {
             if self.shift >= 32 {
                 self.hash = self.hash.wrapping_mul(&PRIME_U256);
                 self.shift = 0;
             }
-            self.hash = self.hash.wrapping_xor(&U256::from(data << self.shift));
+            self.hash = self
+                .hash
+                .wrapping_xor(&U256::from((data as u32) << self.shift));
             self.shift += 1;
         }
 
         #[cfg(target_os = "zkvm")]
         {
-            if self.shift >= 32 {
+            if self.shift >= 8 {
                 unsafe {
                     sys_bigint(&mut self.hash, 0, &self.hash, &PRIME, &MODULUS);
                 }
                 self.shift = 0;
             }
 
-            self.hash[0] ^= (data as u32) << self.shift;
+            self.hash[self.shift] = (self.hash[self.shift] ^ (data as u32)) * PRIME32;
             self.shift += 1;
         }
 
-        println!("hash: {:?}", self.hash);
+        // println!("hash: {:?}", self.hash);
     }
 
     pub fn next(&mut self, data: &[u8]) {
-        for &byte in data {
-            self.next_single(byte);
+        for byte in data {
+            self.next_single(*byte);
         }
     }
 

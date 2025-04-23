@@ -64,6 +64,10 @@ impl<
         &self.actions
     }
 
+    pub fn player_count(&self) -> usize {
+        self.player_metadata.len()
+    }
+
     pub fn join(&mut self, player_metadata: PlayerMetadata) {
         self.player_metadata.push(player_metadata);
     }
@@ -77,12 +81,14 @@ impl<
         self.join(player_metadata);
     }
 
-    pub fn dispatch(&mut self, action_raw: Vec<u8>) -> Result<(), &'static str> {
+    pub fn dispatch(&mut self, action_raw: &[u8]) -> Result<(), &'static str> {
         let action = GameAction::deserialize(&action_raw[1..])?;
+        let player_idx = action_raw[0] as usize;
+
         let mut context = TurboActionContext::new(
             &self.server_metadata,
-            &self.player_metadata[action_raw[0] as usize],
-            action_raw[0],
+            &self.player_metadata[player_idx],
+            player_idx,
         );
         let result = panic::catch_unwind(AssertUnwindSafe(|| {
             (self.reducer)(
@@ -109,5 +115,13 @@ impl<
         stdin.write(&self.player_metadata);
         stdin.write(&self.actions);
         stdin
+    }
+
+    pub fn public_state(&self) -> &PublicState {
+        &self.public_state
+    }
+
+    pub fn private_state(&self) -> &PrivateState {
+        &self.private_state
     }
 }

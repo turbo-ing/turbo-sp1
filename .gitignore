@@ -13,6 +13,7 @@ pgo-data.profdata
 
 # Proofs
 /proofs
+/script/proofs
 **/proof-with-pis.json
 **/proof-with-io.json
 

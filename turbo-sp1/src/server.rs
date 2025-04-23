@@ -1,6 +1,7 @@
 use alloy_sol_types::SolValue;
+use futures_util::{SinkExt, StreamExt};
 use serde::Serialize;
-use serde_json::json;
+use serde_json::{json, Value};
 use std::{convert::Infallible, sync::Arc};
 use tokio::sync::{mpsc, Mutex};
 use warp::Filter;
@@ -8,9 +9,10 @@ use warp::Filter;
 use sp1_sdk::ProverClient;
 use turbo_program::{program::TurboReducer, traits::TurboActionSerialization};
 
-use crate::proof::{handle_proof_request, ProofType};
+use crate::proof::{handle_proof_execute, ProofType};
 use crate::proof_worker::{spawn_proof_workers, ProofJob, ProofRequest};
 use crate::prove_queue::{ProveQueue, ProveStatus};
+use crate::session::TurboSession;
 use crate::session_manager::SessionManager;
 use crate::session_simple::create_session_json;
 use crate::warp::rejection::{handle_rejection, ServerError};
@@ -28,7 +30,7 @@ where
         + Send
         + Sync
         + 'static,
-    PrivateState: Default + Send + Sync + 'static,
+    PrivateState: Default + Serialize + Send + Sync + 'static,
     GameAction: TurboActionSerialization + Send + Sync + 'static,
 {
     let client_arc = Arc::new(ProverClient::from_env());
@@ -74,16 +76,10 @@ where
                     }
                 };
 
-                handle_proof_request::<PublicState, PrivateState, GameAction>(
-                    session,
-                    client,
-                    elf,
-                    ProofType::Execute,
-                    "".to_string(),
-                )
-                .await
-                .map(|reply| warp::reply::json(&reply))
-                .map_err(|e| ServerError::bad_request(e.to_string()))
+                handle_proof_execute::<PublicState, PrivateState, GameAction>(session, client, elf)
+                    .await
+                    .map(|reply| warp::reply::json(&reply))
+                    .map_err(|e| ServerError::bad_request(e.to_string()))
             }
         });
 
@@ -191,8 +187,97 @@ where
                 }
             });
 
+    // Add a WebSocket route for processing commands
+    let ws_session_manager = session_manager_arc.clone();
+    let ws_route = warp::path("ws")
+        .and(warp::ws())
+        .and_then(move |ws: warp::ws::Ws| {
+            let session_manager = ws_session_manager.clone();
+            
+            async move {
+                Ok::<_, warp::reject::Rejection>(ws.on_upgrade(move |websocket| async move {
+                    let (mut tx, mut rx) = websocket.split();
+                    let session_manager = session_manager.clone();
+                    let mut active_session: Option<Arc<Mutex<TurboSession<PublicState, PrivateState, GameAction>>>> = None;
+                    
+                    if let Err(_) = tx.send(warp::ws::Message::text("{\"__state\":\"waiting\"}")).await {
+                        return;
+                    }
+
+                    // Process messages one by one
+                    while let Some(result) = rx.next().await {
+                        match result {
+                            Ok(msg) => {
+                                if let Ok(text) = msg.to_str() {
+                                    // Parse the JSON command
+                                    match serde_json::from_str::<serde_json::Value>(text) {
+                                        Ok(command) => {
+                                            let response = if command.get("__syscall").is_some() {
+                                                let syscall = command.get("__syscall").unwrap().as_str().unwrap();
+                                                let mut response: Option<Value> = None;
+
+                                                if syscall == "join_session" {
+                                                    let session_id_option = command.get("session_id");
+                                                    let session_id = match session_id_option {
+                                                        Some(session_id) => session_id.as_str().unwrap(),
+                                                        None => &session_manager.lock().await.create_session(reducer).await
+                                                    };
+                                                    
+                                                    let session = session_manager.lock().await.get_session(session_id).await;
+                                                            
+                                                    if session.is_some() {
+                                                        active_session = Some(session.unwrap());
+                                                        response = Some(json!({
+                                                            "__state": "ready",
+                                                            "__session_id": session_id.to_string(),
+                                                        }));
+                                                    } else {
+                                                        response = Some(json!({
+                                                            "error": "Failed to create session"
+                                                        }));
+                                                    }
+                                                }
+
+                                                // Handle syscall
+                                                serde_json::to_string(&response.unwrap_or(json!({
+                                                    "error": "Syscalls not yet implemented"
+                                                }))).unwrap_or_else(|_| String::from("{\"error\":\"Failed to serialize response\"}"))
+                                            } else {
+                                                // Process normal command
+                                                // match process_command(command, &active_session).await {
+                                                //     Ok(resp) => serde_json::to_string(&resp),
+                                                //     Err(e) => serde_json::to_string(&json!({
+                                                //         "error": e.to_string()
+                                                //     }))
+                                                // }.unwrap_or_else(|_| String::from("{\"error\":\"Failed to serialize response\"}"))
+
+                                                serde_json::to_string(&json!({
+                                                    "error": "Syscalls not yet implemented"
+                                                })).unwrap_or_else(|_| String::from("{\"error\":\"Failed to serialize response\"}"))
+                                            };
+
+                                            if let Err(_) = tx.send(warp::ws::Message::text(response)).await {
+                                                break;
+                                            }
+                                        },
+                                        Err(_) => {
+                                            if let Err(_) = tx.send(warp::ws::Message::text("{\"error\":\"Invalid JSON\"}")).await {
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            Err(_) => break
+                        }
+                    }
+                }))
+            }
+        });
+
     execute_route
         .or(prove_route)
         .or(prove_result_route)
+        .or(ws_route)
         .recover(handle_rejection)
 }

@@ -29,8 +29,6 @@ pub fn bn254_export_affine_g1_memcpy(affine: &AffineG1) -> [u32; 16] {
         core::ptr::copy_nonoverlapping(transmute(affine), result.as_mut_ptr(), 16);
     }
 
-    println!("result: {:?}", result);
-
     result
 }
 

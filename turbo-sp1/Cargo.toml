@@ -17,4 +17,5 @@ serde_json = "1.0"
 hex = "0.4"
 uuid = { version = "1.16", features = ["v4"] }
 substrate-bn = { git = "https://github.com/sp1-patches/bn", tag = "patch-0.6.0-sp1-4.0.0" }
+lazy_static = "1.5"
 rand = "0.8"

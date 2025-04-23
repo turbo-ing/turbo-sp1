@@ -93,7 +93,7 @@ pub fn turbo_program<PublicState, PrivateState, GameAction>(
 
     // First create all the contexts
     for (i, metadata) in player_metadata.iter().enumerate() {
-        player_contexts.push(TurboActionContext::new(&server_metadata, metadata, i as u8));
+        player_contexts.push(TurboActionContext::new(&server_metadata, metadata, i));
     }
 
     // Then collect mutable references to them

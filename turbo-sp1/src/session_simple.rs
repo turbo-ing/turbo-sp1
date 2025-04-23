@@ -12,14 +12,15 @@ where
     PrivateState: Default + Send + Sync,
     GameAction: TurboActionSerialization + Send + Sync,
 {
+    let session_id = session_manager.create_session(reducer).await;
     let session = session_manager
-        .create_session(reducer)
+        .get_session(&session_id)
         .await
         .ok_or("Failed to create session")?;
 
     let mut session_guard = session.lock().await;
 
-    let actions_bytes = match actions {
+    let remaining_actions_vec = match actions {
         serde_json::Value::Array(_) => {
             let mut result: Vec<u8> = Vec::new();
             for action in actions.as_array().unwrap() {
@@ -36,7 +37,44 @@ where
         _ => return Err("Invalid input format"),
     }?;
 
-    session_guard.dispatch(actions_bytes)?;
+    let mut remaining_actions = &remaining_actions_vec[..];
 
-    Ok(session_guard.id())
+    while !remaining_actions.is_empty() {
+        let player_idx = remaining_actions[0] as usize;
+        let action_type = remaining_actions[1];
+        let mut action_length: usize = action_type as usize;
+
+        if player_idx > 100 {
+            Err("Max 100 players")?;
+        }
+
+        while player_idx >= session_guard.player_count() {
+            session_guard.join_random();
+        }
+
+        if action_type == 0x80 {
+            action_length = remaining_actions[2] as usize;
+        } else if action_type == 0x81 {
+            action_length =
+                ((remaining_actions[2] as usize) << 8) | (remaining_actions[3] as usize);
+        } else if action_type > 0x81 {
+            Err("Invalid action type")?;
+        }
+
+        let start_idx = match action_type {
+            0x80 => 3,
+            0x81 => 4,
+            _ => 2,
+        };
+        if remaining_actions.len() < start_idx + action_length {
+            Err("Action bytes too short for specified length")?;
+        }
+
+        let action_bytes = &remaining_actions[0..start_idx + action_length];
+        session_guard.dispatch(action_bytes)?;
+
+        remaining_actions = &remaining_actions[start_idx + action_length..];
+    }
+
+    Ok(session_id)
 }

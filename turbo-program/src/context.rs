@@ -7,7 +7,7 @@ use crate::{
 pub struct TurboActionContext<'a> {
     pub server_metadata: &'a ServerMetadata,
     pub player_metadata: &'a PlayerMetadata,
-    player_index: u8,
+    player_index: usize,
     action_hash: FnvHasher,
     rand: BnRandomizer,
 }
@@ -16,7 +16,7 @@ impl<'a> TurboActionContext<'a> {
     pub fn new(
         server_metadata: &'a ServerMetadata,
         player_metadata: &'a PlayerMetadata,
-        player_index: u8,
+        player_index: usize,
     ) -> Self {
         let mut context = Self {
             server_metadata,
@@ -36,7 +36,7 @@ impl<'a> TurboActionContext<'a> {
         context
     }
 
-    pub fn player_index(&self) -> u8 {
+    pub fn player_index(&self) -> usize {
         self.player_index
     }
 

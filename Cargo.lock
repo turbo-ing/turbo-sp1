@@ -5743,6 +5743,7 @@ dependencies = [
  "futures-util",
  "game-lib",
  "hex",
+ "lazy_static",
  "rand 0.8.5",
  "serde",
  "serde_json",

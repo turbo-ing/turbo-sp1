@@ -44,11 +44,13 @@ impl<
     pub async fn create_session(
         &mut self,
         reducer: TurboReducer<PublicState, PrivateState, GameAction>,
-    ) -> Option<Arc<Mutex<TurboSession<PublicState, PrivateState, GameAction>>>> {
-        let id = Uuid::new_v4().to_string();
+    ) -> String {
+        let session = TurboSession::new(reducer);
+        let id = session.id();
+
         let mut sessions = self.sessions.lock().await;
-        sessions.insert(id.clone(), Arc::new(Mutex::new(TurboSession::new(reducer))));
-        self.get_session(&id).await
+        sessions.insert(session.id(), Arc::new(Mutex::new(session)));
+        id
     }
 
     pub async fn get_session(
