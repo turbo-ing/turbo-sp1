@@ -1,7 +1,7 @@
 use alloy_sol_types::SolValue;
 
 use crate::{
-    context::TurboActionContext,
+    context::{TurboActionContext, TurboActionContextInner},
     metadata::{PlayerMetadata, ServerMetadata},
     traits::TurboActionSerialization,
 };

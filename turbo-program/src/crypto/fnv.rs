@@ -29,7 +29,8 @@ const OFFSET_U256: U256 =
 const PRIME_U256: U256 =
     U256::from_be_hex("0000000000000000000001000000000000000000000000000000000000000163");
 
-// Modified FnvHasher that make it faster by hashing 32 bits at a time
+// Modified FnvHasher that make it faster by hashing 8 bytes at a time
+#[derive(Clone)]
 pub struct FnvHasher {
     #[cfg(not(target_os = "zkvm"))]
     hash: U256,
@@ -64,13 +65,12 @@ impl FnvHasher {
 
         #[cfg(not(target_os = "zkvm"))]
         {
-            if self.shift >= 32 {
+            if self.shift >= 8 {
                 self.hash = self.hash.wrapping_mul(&PRIME_U256);
                 self.shift = 0;
             }
-            self.hash = self
-                .hash
-                .wrapping_xor(&U256::from((data as u32) << self.shift));
+            // TODO
+            self.hash = self.hash.wrapping_xor(&U256::from(data));
             self.shift += 1;
         }
 

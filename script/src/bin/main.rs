@@ -13,7 +13,12 @@ async fn main() {
 
     let routes = turbo_sp1_routes(GAME_ELF, reducer, 4);
 
-    // Start the server on port 3030.
-    println!("Server running on http://localhost:3030");
-    warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
+    // Get port from environment variable or use default 3030
+    let port = std::env::var("PORT")
+        .ok()
+        .and_then(|p| p.parse::<u16>().ok())
+        .unwrap_or(3030);
+
+    println!("Server running on http://localhost:{}", port);
+    warp::serve(routes).run(([127, 0, 0, 1], port)).await;
 }

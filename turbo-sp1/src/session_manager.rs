@@ -1,16 +1,16 @@
+use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use turbo_program::program::TurboReducer;
 use turbo_program::traits::TurboActionSerialization;
-use uuid::Uuid;
 
 use crate::session::TurboSession;
 
 pub struct SessionManager<PublicState, PrivateState, GameAction>
 where
-    PublicState: Default + Send + Sync,
+    PublicState: Serialize + Default + Send + Sync,
     PrivateState: Default + Send + Sync,
     GameAction: TurboActionSerialization + Send + Sync,
 {
@@ -19,7 +19,7 @@ where
 }
 
 impl<
-        PublicState: Default + Send + Sync,
+        PublicState: Serialize + Default + Send + Sync,
         PrivateState: Default + Send + Sync,
         GameAction: TurboActionSerialization + Send + Sync,
     > Default for SessionManager<PublicState, PrivateState, GameAction>
@@ -30,7 +30,7 @@ impl<
 }
 
 impl<
-        PublicState: Default + Send + Sync,
+        PublicState: Serialize + Default + Send + Sync,
         PrivateState: Default + Send + Sync,
         GameAction: TurboActionSerialization + Send + Sync,
     > SessionManager<PublicState, PrivateState, GameAction>

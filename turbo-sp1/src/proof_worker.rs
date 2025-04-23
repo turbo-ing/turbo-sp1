@@ -18,9 +18,9 @@ pub type ProofJob<PublicState, PrivateState, GameAction> =
 
 #[derive(Clone)]
 pub struct ProofRequest<
-    PublicState: Send + Sync,
-    PrivateState: Send + Sync,
-    GameAction: Send + Sync,
+    PublicState: Serialize + Default + Send + Sync,
+    PrivateState: Default + Send + Sync,
+    GameAction: TurboActionSerialization + Send + Sync,
 > {
     session: Arc<Mutex<TurboSession<PublicState, PrivateState, GameAction>>>,
     proof_type: ProofType,
@@ -30,9 +30,9 @@ pub struct ProofRequest<
 
 impl<PublicState, PrivateState, GameAction> ProofRequest<PublicState, PrivateState, GameAction>
 where
-    PublicState: Send + Sync,
-    PrivateState: Send + Sync,
-    GameAction: Send + Sync,
+    PublicState: Serialize + Default + Send + Sync,
+    PrivateState: Default + Send + Sync,
+    GameAction: TurboActionSerialization + Send + Sync,
 {
     pub fn new(
         session: Arc<Mutex<TurboSession<PublicState, PrivateState, GameAction>>>,

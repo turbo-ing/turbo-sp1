@@ -5,6 +5,7 @@ use crate::crypto::bn_math::{bn254_add, bn254_double};
 use crate::crypto::bn_serialize::{bn254_export_affine_g1_memcpy, bn254_import_affine_g1_memcpy};
 use crate::rand::pcg::{rxs_m_xs, xsh_rs};
 
+#[derive(Clone)]
 pub struct BnRandomizer {
     current: [u32; 16],
     nonce: u64,

@@ -1,10 +1,12 @@
 use std::panic::{self, AssertUnwindSafe};
 
 use rand::thread_rng;
+use serde::Serialize;
+use serde_json::{json, Value};
 use sp1_sdk::SP1Stdin;
 use substrate_bn::*;
 use turbo_program::{
-    context::TurboActionContext,
+    context::{TurboActionContext, TurboActionContextInner},
     crypto::bn_serialize::bn254_export_affine_g1_memcpy,
     metadata::{PlayerMetadata, ServerMetadata},
     program::TurboReducer,
@@ -14,14 +16,15 @@ use uuid::Uuid;
 
 pub struct TurboSession<PublicState, PrivateState, GameAction>
 where
-    PublicState: Send + Sync,
-    PrivateState: Send + Sync,
-    GameAction: Send + Sync,
+    PublicState: Serialize + Default + Send + Sync,
+    PrivateState: Default + Send + Sync,
+    GameAction: TurboActionSerialization + Send + Sync,
 {
     id: String,
     actions: Vec<u8>,
     server_metadata: ServerMetadata,
     player_metadata: Vec<PlayerMetadata>,
+    contexts: Vec<TurboActionContextInner>,
 
     reducer: TurboReducer<PublicState, PrivateState, GameAction>,
     public_state: PublicState,
@@ -31,7 +34,7 @@ where
 }
 
 impl<
-        PublicState: Default + Send + Sync,
+        PublicState: Serialize + Default + Send + Sync,
         PrivateState: Default + Send + Sync,
         GameAction: TurboActionSerialization + Send + Sync,
     > TurboSession<PublicState, PrivateState, GameAction>
@@ -49,6 +52,7 @@ impl<
                 random_seed: bn254_export_affine_g1_memcpy(&server_random_seed),
             },
             player_metadata: Vec::new(),
+            contexts: Vec::new(),
             reducer,
             public_state: PublicState::default(),
             private_state: PrivateState::default(),
@@ -68,27 +72,39 @@ impl<
         self.player_metadata.len()
     }
 
-    pub fn join(&mut self, player_metadata: PlayerMetadata) {
+    pub fn join(&mut self, player_metadata: PlayerMetadata) -> usize {
         self.player_metadata.push(player_metadata);
+
+        let player_idx = self.player_metadata.len() - 1;
+
+        let context = TurboActionContextInner::new(
+            &self.server_metadata,
+            &self.player_metadata[player_idx],
+            player_idx,
+        );
+
+        self.contexts.push(context);
+
+        player_idx
     }
 
-    pub fn join_random(&mut self) {
+    pub fn join_random(&mut self) -> usize {
         let mut rng = thread_rng();
         let player_random_seed = AffineG1::one() * Fr::random(&mut rng);
         let player_metadata = PlayerMetadata {
             random_seed: bn254_export_affine_g1_memcpy(&player_random_seed),
         };
-        self.join(player_metadata);
+        self.join(player_metadata)
     }
 
     pub fn dispatch(&mut self, action_raw: &[u8]) -> Result<(), &'static str> {
-        let action = GameAction::deserialize(&action_raw[1..])?;
+        let action = GameAction::deserialize(&action_raw[2..])?;
         let player_idx = action_raw[0] as usize;
 
-        let mut context = TurboActionContext::new(
+        let mut context = TurboActionContext::new_from_inner(
             &self.server_metadata,
             &self.player_metadata[player_idx],
-            player_idx,
+            self.contexts[player_idx].clone(),
         );
         let result = panic::catch_unwind(AssertUnwindSafe(|| {
             (self.reducer)(
@@ -106,6 +122,8 @@ impl<
         }
 
         self.actions.extend(action_raw);
+        self.contexts[player_idx] = context.inner;
+
         Ok(())
     }
 
@@ -123,5 +141,11 @@ impl<
 
     pub fn private_state(&self) -> &PrivateState {
         &self.private_state
+    }
+
+    pub fn serialize_json(&self) -> Result<Value, &'static str> {
+        Ok(json!({
+            "public_state": self.public_state,
+        }))
     }
 }

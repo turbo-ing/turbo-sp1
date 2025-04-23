@@ -14,7 +14,7 @@ use crate::proof_worker::{spawn_proof_workers, ProofJob, ProofRequest};
 use crate::prove_queue::{ProveQueue, ProveStatus};
 use crate::session::TurboSession;
 use crate::session_manager::SessionManager;
-use crate::session_simple::create_session_json;
+use crate::session_simple::{create_session_json, dispatch_actions};
 use crate::warp::rejection::{handle_rejection, ServerError};
 
 pub fn turbo_sp1_routes<PublicState, PrivateState, GameAction>(
@@ -188,18 +188,28 @@ where
             });
 
     // Add a WebSocket route for processing commands
+    let ws_client = client_arc.clone();
+    let ws_elf = elf_arc.clone();
+    let ws_prove_queue = prove_queue_arc.clone();
     let ws_session_manager = session_manager_arc.clone();
+    let ws_tx_jobs = tx_jobs_arc.clone();
     let ws_route = warp::path("ws")
         .and(warp::ws())
         .and_then(move |ws: warp::ws::Ws| {
             let session_manager = ws_session_manager.clone();
+            let prove_queue = ws_prove_queue.clone();
+            let client = ws_client.clone();
+            let elf = ws_elf.clone();
+            let tx_jobs = ws_tx_jobs.clone();
             
             async move {
                 Ok::<_, warp::reject::Rejection>(ws.on_upgrade(move |websocket| async move {
                     let (mut tx, mut rx) = websocket.split();
                     let session_manager = session_manager.clone();
                     let mut active_session: Option<Arc<Mutex<TurboSession<PublicState, PrivateState, GameAction>>>> = None;
-                    
+                    let mut active_proof_id: Option<String> = None;
+                    let mut active_player_idx: Option<usize> = None;
+
                     if let Err(_) = tx.send(warp::ws::Message::text("{\"__state\":\"waiting\"}")).await {
                         return;
                     }
@@ -223,10 +233,15 @@ where
                                                         None => &session_manager.lock().await.create_session(reducer).await
                                                     };
                                                     
-                                                    let session = session_manager.lock().await.get_session(session_id).await;
+                                                    let session_option = session_manager.lock().await.get_session(session_id).await;
                                                             
-                                                    if session.is_some() {
-                                                        active_session = Some(session.unwrap());
+                                                    if session_option.is_some() {
+                                                        let session = session_option.unwrap();
+                                                        let player_idx = session.lock().await.join_random();
+
+                                                        active_session = Some(session);
+                                                        active_player_idx = Some(player_idx);
+
                                                         response = Some(json!({
                                                             "__state": "ready",
                                                             "__session_id": session_id.to_string(),
@@ -236,6 +251,71 @@ where
                                                             "error": "Failed to create session"
                                                         }));
                                                     }
+                                                } else if syscall == "proof" {
+                                                    let proof_type = command.get("proof_type").unwrap().as_str().unwrap();
+                                                    let proof_type = match proof_type {
+                                                        "core" => ProofType::Core,
+                                                        "compressed" => ProofType::Compressed,
+                                                        "groth16" => ProofType::Groth16,
+                                                        "plonk" => ProofType::Plonk,
+                                                        _ => panic!("Invalid proof type"),
+                                                    };
+                                    
+                                                    // Create a new task in the queue
+                                                    let proof_id = prove_queue.enqueue_task();
+                                                    let proof_id_clone = proof_id.clone();
+
+                                                    // Set active proof id
+                                                    active_proof_id = Some(proof_id.clone());
+
+                                                    // Start a new proof job
+                                                    tx_jobs
+                                                        .send((
+                                                            proof_id_clone,
+                                                            ProofRequest::new(
+                                                                active_session.clone().unwrap().clone(),
+                                                                proof_type,
+                                                                client.clone(),
+                                                                elf.clone(),
+                                                            ),
+                                                        )).unwrap();
+
+                                                    response = Some(json!({
+                                                        "proof_id": proof_id.clone(),
+                                                    }));
+                                                } else if syscall == "proof_status" {
+                                                    let proof_id_option = command.get("proof_id");
+                                                    let proof_id: String = match proof_id_option {
+                                                        Some(proof_id) => proof_id.as_str().unwrap().to_string(),
+                                                        None => active_proof_id.clone().unwrap(),
+                                                    };
+                                                    
+                                                    let status = prove_queue.get_status(&proof_id);
+                                                    let status = match status {
+                                                        Some(status) => status,
+                                                        None => ProveStatus::Error("Proof not found".into()),
+                                                    };
+                                                    
+                                                    response = match status {
+                                                        ProveStatus::Queued => Some(json!({
+                                                            "proof_id": proof_id,
+                                                            "status": "queued"
+                                                        })),
+                                                        ProveStatus::InProgress => Some(json!({
+                                                            "proof_id": proof_id,
+                                                            "status": "in_progress"
+                                                        })),
+                                                        ProveStatus::Done(result) => Some(json!({
+                                                            "proof_id": proof_id,
+                                                            "status": "done",
+                                                            "proof": result
+                                                        })),
+                                                        ProveStatus::Error(error) => Some(json!({
+                                                            "proof_id": proof_id,
+                                                            "status": "error",
+                                                            "error": error
+                                                        })),
+                                                    };
                                                 }
 
                                                 // Handle syscall
@@ -243,17 +323,16 @@ where
                                                     "error": "Syscalls not yet implemented"
                                                 }))).unwrap_or_else(|_| String::from("{\"error\":\"Failed to serialize response\"}"))
                                             } else {
-                                                // Process normal command
-                                                // match process_command(command, &active_session).await {
-                                                //     Ok(resp) => serde_json::to_string(&resp),
-                                                //     Err(e) => serde_json::to_string(&json!({
-                                                //         "error": e.to_string()
-                                                //     }))
-                                                // }.unwrap_or_else(|_| String::from("{\"error\":\"Failed to serialize response\"}"))
+                                                let result = dispatch_actions(active_session.clone().unwrap(), command, active_player_idx.clone().unwrap()).await;
 
-                                                serde_json::to_string(&json!({
-                                                    "error": "Syscalls not yet implemented"
-                                                })).unwrap_or_else(|_| String::from("{\"error\":\"Failed to serialize response\"}"))
+                                                if let Err(e) = result {
+                                                    serde_json::to_string(&json!({
+                                                        "error": e
+                                                    })).unwrap_or_else(|_| String::from("{\"error\":\"Failed to serialize response\"}"))
+                                                } else {
+                                                    let result_json = active_session.clone().unwrap().lock().await.serialize_json().unwrap();
+                                                    serde_json::to_string(&result_json).unwrap_or_else(|_| String::from("{\"error\":\"Failed to serialize response\"}"))
+                                                }
                                             };
 
                                             if let Err(_) = tx.send(warp::ws::Message::text(response)).await {

@@ -6,7 +6,7 @@ use turbo_program::{context::TurboActionContext, traits::TurboActionSerializatio
 sol! {
     #[derive(Serialize, Deserialize, Debug, Default)]
     struct GamePublicState {
-        uint8[4][4] board;
+        uint32[4][4] board;
         uint32 num;
     }
 
@@ -16,6 +16,7 @@ sol! {
     }
 }
 
+#[derive(Debug)]
 pub enum GameAction {
     MoveAction(u8),
     NewTileAction(u8, u8),
@@ -42,7 +43,7 @@ impl TurboActionSerialization for GameAction {
         if let Some(action_u8) = action.as_u64().map(|n| n as u8) {
             result.push(action_u8);
         } else {
-            let action_type = action["type"].as_str().ok_or("Missing type field")?;
+            let action_type = action["action"].as_str().ok_or("Missing action field")?;
             let data = action["data"].as_array().ok_or("Missing data field")?;
 
             match action_type {
@@ -84,14 +85,14 @@ impl TurboActionSerialization for GameAction {
 }
 
 /// Slide non-zero tiles to the left and merge equal adjacent tiles.
-fn slide_and_merge_line(line: [u8; 4]) -> [u8; 4] {
+fn slide_and_merge_line(line: [u32; 4]) -> [u32; 4] {
     let mut out = [0; 4];
     // Collect non-zero tiles
     let temp = line
         .iter()
         .cloned()
         .filter(|&x| x != 0)
-        .collect::<Vec<u8>>();
+        .collect::<Vec<u32>>();
     let mut idx = 0;
     let mut i = 0;
     // Merge tiles
@@ -109,7 +110,7 @@ fn slide_and_merge_line(line: [u8; 4]) -> [u8; 4] {
 }
 
 /// Transpose a 4×4 board (rows <-> columns).
-fn transpose(board: &[[u8; 4]; 4]) -> [[u8; 4]; 4] {
+fn transpose(board: &[[u32; 4]; 4]) -> [[u32; 4]; 4] {
     let mut t = [[0; 4]; 4];
     for i in 0..4 {
         for j in 0..4 {
@@ -121,8 +122,43 @@ fn transpose(board: &[[u8; 4]; 4]) -> [[u8; 4]; 4] {
 
 /// Move the board in one of four directions:
 /// 0 = Up, 1 = Down, 2 = Left, 3 = Right.
-pub fn move_board(board: &[[u8; 4]; 4], direction: u8) -> [[u8; 4]; 4] {
+pub fn move_board(board: &[[u32; 4]; 4], direction: u8) -> [[u32; 4]; 4] {
     let mut result = [[0; 4]; 4];
+
+    // First check if move is possible to avoid unnecessary operations
+    let can_move = match direction {
+        0 => {
+            // Up
+            let tb = transpose(board);
+            (0..4).any(|i| can_merge_line(&tb[i]))
+        }
+        1 => {
+            // Down
+            let tb = transpose(board);
+            (0..4).any(|i| {
+                let mut row = tb[i];
+                row.reverse();
+                can_merge_line(&row)
+            })
+        }
+        2 => {
+            // Left
+            (0..4).any(|i| can_merge_line(&board[i]))
+        }
+        3 => {
+            // Right
+            (0..4).any(|i| {
+                let mut row = board[i];
+                row.reverse();
+                can_merge_line(&row)
+            })
+        }
+        _ => false,
+    };
+
+    if !can_move {
+        return *board;
+    }
 
     match direction {
         // Up: transpose, slide left, transpose back
@@ -132,11 +168,7 @@ pub fn move_board(board: &[[u8; 4]; 4], direction: u8) -> [[u8; 4]; 4] {
             for i in 0..4 {
                 moved[i] = slide_and_merge_line(tb[i]);
             }
-            for i in 0..4 {
-                for j in 0..4 {
-                    result[j][i] = moved[i][j];
-                }
-            }
+            result = transpose(&moved);
         }
         // Down: transpose, slide right, transpose back
         1 => {
@@ -149,11 +181,7 @@ pub fn move_board(board: &[[u8; 4]; 4], direction: u8) -> [[u8; 4]; 4] {
                 merged.reverse();
                 moved[i] = merged;
             }
-            for i in 0..4 {
-                for j in 0..4 {
-                    result[j][i] = moved[i][j];
-                }
-            }
+            result = transpose(&moved);
         }
         // Left: slide each row
         2 => {
@@ -176,6 +204,29 @@ pub fn move_board(board: &[[u8; 4]; 4], direction: u8) -> [[u8; 4]; 4] {
     }
 
     result
+}
+
+/// Helper function to check if a line can be merged/moved
+fn can_merge_line(line: &[u32; 4]) -> bool {
+    // Check for possible merges
+    for i in 0..3 {
+        if line[i] != 0 && line[i] == line[i + 1] {
+            return true;
+        }
+    }
+
+    // Check for possible moves (gaps between numbers)
+    let mut found_zero = false;
+    for i in 0..4 {
+        if line[i] == 0 {
+            found_zero = true;
+        } else if found_zero {
+            // Found a non-zero number after a zero
+            return true;
+        }
+    }
+
+    false
 }
 
 pub fn reducer(
