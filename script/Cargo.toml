@@ -1,11 +1,11 @@
 [package]
 version = "0.1.0"
-name = "fibonacci-script"
+name = "game-script"
 edition = "2021"
-default-run = "fibonacci"
+default-run = "server"
 
 [[bin]]
-name = "fibonacci"
+name = "server"
 path = "src/bin/main.rs"
 
 [[bin]]
