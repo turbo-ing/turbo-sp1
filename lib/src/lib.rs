@@ -7,7 +7,6 @@ sol! {
     #[derive(Serialize, Deserialize, Debug, Default)]
     struct GamePublicState {
         uint32[4][4] board;
-        uint32 num;
     }
 
     #[derive(Serialize, Deserialize, Debug, Default)]
@@ -125,40 +124,40 @@ fn transpose(board: &[[u32; 4]; 4]) -> [[u32; 4]; 4] {
 pub fn move_board(board: &[[u32; 4]; 4], direction: u8) -> [[u32; 4]; 4] {
     let mut result = [[0; 4]; 4];
 
-    // First check if move is possible to avoid unnecessary operations
-    let can_move = match direction {
-        0 => {
-            // Up
-            let tb = transpose(board);
-            (0..4).any(|i| can_merge_line(&tb[i]))
-        }
-        1 => {
-            // Down
-            let tb = transpose(board);
-            (0..4).any(|i| {
-                let mut row = tb[i];
-                row.reverse();
-                can_merge_line(&row)
-            })
-        }
-        2 => {
-            // Left
-            (0..4).any(|i| can_merge_line(&board[i]))
-        }
-        3 => {
-            // Right
-            (0..4).any(|i| {
-                let mut row = board[i];
-                row.reverse();
-                can_merge_line(&row)
-            })
-        }
-        _ => false,
-    };
+    // (Optimistic in most cases) First check if move is possible to avoid unnecessary operations
+    // let can_move = match direction {
+    //     0 => {
+    //         // Up
+    //         let tb = transpose(board);
+    //         (0..4).any(|i| can_merge_line(&tb[i]))
+    //     }
+    //     1 => {
+    //         // Down
+    //         let tb = transpose(board);
+    //         (0..4).any(|i| {
+    //             let mut row = tb[i];
+    //             row.reverse();
+    //             can_merge_line(&row)
+    //         })
+    //     }
+    //     2 => {
+    //         // Left
+    //         (0..4).any(|i| can_merge_line(&board[i]))
+    //     }
+    //     3 => {
+    //         // Right
+    //         (0..4).any(|i| {
+    //             let mut row = board[i];
+    //             row.reverse();
+    //             can_merge_line(&row)
+    //         })
+    //     }
+    //     _ => false,
+    // };
 
-    if !can_move {
-        return *board;
-    }
+    // if !can_move {
+    //     return *board;
+    // }
 
     match direction {
         // Up: transpose, slide left, transpose back
@@ -248,23 +247,38 @@ pub fn reducer(
             }
         }
         GameAction::MoveAndRandomTileAction(direction) => {
-            public_state.board = move_board(&public_state.board, *direction);
+            // A fix for initial state
+            if private_state.moves == 0 {
+                let rand = context.rand_u32() % 16;
+                public_state.board[rand as usize / 4][rand as usize % 4] = 2;
+                return;
+            }
+
+            let new_board = move_board(&public_state.board, *direction);
             private_state.moves += 1;
+
             let mut empty_positions = Vec::new();
+            let mut is_moved = false;
             for row in 0..4 {
                 for col in 0..4 {
-                    if public_state.board[row][col] == 0 {
+                    if new_board[row][col] == 0 {
                         empty_positions.push((row, col));
+                    }
+
+                    if public_state.board[row][col] != new_board[row][col] {
+                        is_moved = true;
                     }
                 }
             }
 
-            let rand = context.rand_u32();
-            public_state.num += rand % 16;
+            if is_moved {
+                public_state.board = new_board;
 
-            if !empty_positions.is_empty() {
-                let (r, c) = empty_positions[rand as usize % empty_positions.len()];
-                public_state.board[r][c] = 2;
+                if !empty_positions.is_empty() {
+                    let rand = context.rand_u32();
+                    let (r, c) = empty_positions[rand as usize % empty_positions.len()];
+                    public_state.board[r][c] = 2;
+                }
             }
         }
     }

@@ -106,9 +106,9 @@ fn main() {
 
         // Read the output.
         let decoded: GamePublicState = GamePublicState::abi_decode(output.as_slice()).unwrap();
-        let GamePublicState { board, num } = decoded;
+        let GamePublicState { board } = decoded;
         println!("board: {:?}", board);
-        println!("num: {:?}", num);
+        // println!("num: {:?}", num);
         // println!("hash: {:?}", hash);
 
         // Record the number of cycles executed.
@@ -143,9 +143,9 @@ fn main() {
         // Read the output.
         let decoded: GamePublicState =
             GamePublicState::abi_decode(proof.public_values.as_slice()).unwrap();
-        let GamePublicState { board, num } = decoded;
+        let GamePublicState { board } = decoded;
         println!("board: {:?}", board);
-        println!("num: {:?}", num);
+        // println!("num: {:?}", num);
         // println!("hash: {:?}", hash);
 
         println!(
