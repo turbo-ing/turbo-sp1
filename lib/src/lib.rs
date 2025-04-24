@@ -251,6 +251,7 @@ pub fn reducer(
             if private_state.moves == 0 {
                 let rand = context.rand_u32() % 16;
                 public_state.board[rand as usize / 4][rand as usize % 4] = 2;
+                private_state.moves += 1;
                 return;
             }
 
