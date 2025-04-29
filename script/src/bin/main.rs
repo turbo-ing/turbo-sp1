@@ -1,5 +1,5 @@
-use game_lib::reducer;
-use sp1_sdk::{include_elf, HashableKey, ProverClient, SP1Stdin, SP1VerifyingKey};
+use game_lib::reducer::reducer;
+use sp1_sdk::include_elf;
 use turbo_sp1::server::turbo_sp1_routes;
 
 /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.

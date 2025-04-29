@@ -1,3 +1,5 @@
+use serde_json::Value;
+
 use crate::{
     crypto::fnv::FnvHasher,
     metadata::{PlayerMetadata, ServerMetadata},
@@ -9,6 +11,7 @@ pub struct TurboActionContextInner {
     player_index: usize,
     action_hash: FnvHasher,
     rand: BnRandomizer,
+    pub client_response: Option<Value>,
 }
 
 impl TurboActionContextInner {
@@ -24,6 +27,7 @@ impl TurboActionContextInner {
                 player_metadata.random_seed,
             ]),
             action_hash: FnvHasher::new(),
+            client_response: None,
         };
 
         let current_bytes =
@@ -103,5 +107,9 @@ impl<'a> TurboActionContext<'a> {
 
     pub fn update_action_hash(&mut self, action: &[u8]) {
         self.inner.update_action_hash(action);
+    }
+
+    pub fn client_response(&mut self) -> &mut Option<Value> {
+        &mut self.inner.client_response
     }
 }

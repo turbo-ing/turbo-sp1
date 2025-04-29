@@ -12,7 +12,7 @@
 
 use alloy_sol_types::SolType;
 use clap::Parser;
-use game_lib::GamePublicState;
+use game_lib::state::GamePublicState;
 use rand::thread_rng;
 use sp1_sdk::{include_elf, ProverClient, SP1Stdin};
 use std::num::ParseIntError;

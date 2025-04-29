@@ -143,9 +143,10 @@ impl<
         &self.private_state
     }
 
-    pub fn serialize_json(&self) -> Result<Value, &'static str> {
+    pub fn serialize_json(&self, player_idx: usize) -> Result<Value, &'static str> {
         Ok(json!({
             "public_state": self.public_state,
+            "client_response": self.contexts[player_idx].client_response,
         }))
     }
 }

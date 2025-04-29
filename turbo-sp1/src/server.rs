@@ -323,14 +323,15 @@ where
                                                     "error": "Syscalls not yet implemented"
                                                 }))).unwrap_or_else(|_| String::from("{\"error\":\"Failed to serialize response\"}"))
                                             } else {
-                                                let result = dispatch_actions(active_session.clone().unwrap(), command, active_player_idx.clone().unwrap()).await;
+                                                let player_idx = active_player_idx.unwrap();
+                                                let result = dispatch_actions(active_session.clone().unwrap(), command, player_idx).await;
 
                                                 if let Err(e) = result {
                                                     serde_json::to_string(&json!({
                                                         "error": e
                                                     })).unwrap_or_else(|_| String::from("{\"error\":\"Failed to serialize response\"}"))
                                                 } else {
-                                                    let result_json = active_session.clone().unwrap().lock().await.serialize_json().unwrap();
+                                                    let result_json = active_session.clone().unwrap().lock().await.serialize_json(player_idx).unwrap();
                                                     serde_json::to_string(&result_json).unwrap_or_else(|_| String::from("{\"error\":\"Failed to serialize response\"}"))
                                                 }
                                             };
