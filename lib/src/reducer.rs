@@ -155,17 +155,17 @@ pub fn reducer(
     context: &mut TurboActionContext,
 ) {
     match action {
-        GameAction::MoveAction(direction) => {
-            public_state.board = move_board(&public_state.board, *direction);
-            private_state.moves += 1;
-        }
-        GameAction::NewTileAction(r, c) => {
-            if public_state.board[*r as usize][*c as usize] == 0 {
-                public_state.board[*r as usize][*c as usize] = 2;
-            } else {
-                panic!("Cannot place new tile in non-empty position");
-            }
-        }
+        // GameAction::MoveAction(direction) => {
+        //     public_state.board = move_board(&public_state.board, *direction);
+        //     private_state.moves += 1;
+        // }
+        // GameAction::NewTileAction(r, c) => {
+        //     if public_state.board[*r as usize][*c as usize] == 0 {
+        //         public_state.board[*r as usize][*c as usize] = 2;
+        //     } else {
+        //         panic!("Cannot place new tile in non-empty position");
+        //     }
+        // }
         GameAction::MoveAndRandomTileAction(direction) => {
             *context.client_response() = None;
 
