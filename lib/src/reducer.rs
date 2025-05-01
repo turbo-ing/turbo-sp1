@@ -155,17 +155,17 @@ pub fn reducer(
     context: &mut TurboActionContext,
 ) {
     match action {
-        GameAction::MoveAction(direction) => {
-            public_state.board = move_board(&public_state.board, *direction);
-            private_state.moves += 1;
-        }
-        GameAction::NewTileAction(r, c) => {
-            if public_state.board[*r as usize][*c as usize] == 0 {
-                public_state.board[*r as usize][*c as usize] = 2;
-            } else {
-                panic!("Cannot place new tile in non-empty position");
-            }
-        }
+        // GameAction::MoveAction(direction) => {
+        //     public_state.board = move_board(&public_state.board, *direction);
+        //     private_state.moves += 1;
+        // }
+        // GameAction::NewTileAction(r, c) => {
+        //     if public_state.board[*r as usize][*c as usize] == 0 {
+        //         public_state.board[*r as usize][*c as usize] = 2;
+        //     } else {
+        //         panic!("Cannot place new tile in non-empty position");
+        //     }
+        // }
         GameAction::MoveAndRandomTileAction(direction) => {
             *context.client_response() = None;
 
@@ -176,9 +176,12 @@ pub fn reducer(
                 public_state.board[r][c] = 2;
                 private_state.moves += 1;
 
-                *context.client_response() = Some(json!({
-                    "r": r, "c": c
-                }));
+                #[cfg(not(target_os = "zkvm"))]
+                {
+                    *context.client_response() = Some(json!({
+                        "r": r, "c": c
+                    }));
+                }
 
                 return;
             }
@@ -208,9 +211,12 @@ pub fn reducer(
                     let (r, c) = empty_positions[rand as usize % empty_positions.len()];
                     public_state.board[r][c] = 2;
 
-                    *context.client_response() = Some(json!({
-                        "r": r, "c": c
-                    }));
+                    #[cfg(not(target_os = "zkvm"))]
+                    {
+                        *context.client_response() = Some(json!({
+                            "r": r, "c": c
+                        }));
+                    }
                 }
             }
         }

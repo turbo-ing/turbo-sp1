@@ -98,8 +98,12 @@ impl<
     }
 
     pub fn dispatch(&mut self, action_raw: &[u8]) -> Result<(), &'static str> {
-        let action = GameAction::deserialize(&action_raw[2..])?;
+        let (action, next_actions) = GameAction::deserialize(&action_raw[1..])?;
         let player_idx = action_raw[0] as usize;
+
+        if !next_actions.is_empty() {
+            return Err("Dispatching multiple actions is not allowed");
+        }
 
         let mut context = TurboActionContext::new_from_inner(
             &self.server_metadata,

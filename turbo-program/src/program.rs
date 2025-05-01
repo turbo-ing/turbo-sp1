@@ -38,39 +38,25 @@ where
 
     while !remaining_actions.is_empty() {
         let player_idx = remaining_actions[0] as usize;
-        let action_type = remaining_actions[1];
-        let mut action_length: usize = action_type as usize;
 
-        if action_type == 0x80 {
-            action_length = remaining_actions[2] as usize;
-        } else if action_type == 0x81 {
-            action_length =
-                ((remaining_actions[2] as usize) << 8) | (remaining_actions[3] as usize);
-        } else if action_type > 0x81 {
+        if player_idx >= 0x70 {
             panic!("Invalid action type");
         }
 
-        let start_idx = match action_type {
-            0x80 => 3,
-            0x81 => 4,
-            _ => 2,
-        };
-        if remaining_actions.len() < start_idx + action_length {
-            panic!("Action bytes too short for specified length");
-        }
-
-        let action_bytes = &remaining_actions[start_idx..start_idx + action_length];
-        let action = GameAction::deserialize(action_bytes).expect("Failed to deserialize action");
+        let (action, next_actions) =
+            GameAction::deserialize(&remaining_actions[1..]).expect("Failed to deserialize action");
 
         // Update action hash in the context
         let context = &mut contexts[player_idx];
-        context.update_action_hash(&remaining_actions[1..start_idx + action_length]);
+        context.update_action_hash(
+            &remaining_actions[1..remaining_actions.len() - next_actions.len()],
+        );
 
         // Process the action
         reducer(&mut public_state, &mut private_state, &action, context);
 
         // Move to next action
-        remaining_actions = &remaining_actions[start_idx + action_length..];
+        remaining_actions = next_actions;
     }
 
     PublicState::abi_encode(&public_state)
